@@ -1,4 +1,7 @@
 <?php
+
+namespace Models\UserRepository;
+
 class UserRepository implements DataRepositoryInterface {
     private $orm;
 

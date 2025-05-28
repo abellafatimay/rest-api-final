@@ -1,4 +1,11 @@
 <?php
+
+namespace Router;
+
+use Requests\RequestInterface;
+use Responses\Response;
+use Router\RouteMatcher;
+
 class Router {
     private $request;
     private $routeMatcher;

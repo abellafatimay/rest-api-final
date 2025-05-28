@@ -1,4 +1,8 @@
 <?php
+
+namespace Models\ORM;
+
+
 class ORM {
     private $connection;
     private $table;

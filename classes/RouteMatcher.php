@@ -1,4 +1,7 @@
 <?php
+
+namespace classes;
+
 class RouteMatcher {
     public function match($routes, $requestMethod, $requestPath) {
         foreach ($routes as $route) {

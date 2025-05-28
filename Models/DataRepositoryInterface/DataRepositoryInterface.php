@@ -1,4 +1,7 @@
 <?php
+
+namespace Models\DataRepositoryInterface;
+
 interface DataRepositoryInterface {
     public function getAll();
     public function getById($id);

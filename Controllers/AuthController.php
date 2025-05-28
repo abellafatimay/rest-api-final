@@ -1,6 +1,12 @@
 <?php
+
+namespace Controllers;
+
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+
+use Models\UserRepository;
+use Responses\Response;
 
 class AuthController {
     private $userRepository;

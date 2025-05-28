@@ -1,5 +1,10 @@
 <?php
 
+namespace Middleware;
+
+use Controllers\AuthController;
+use Responses\Response;      
+
 class Middleware {
     // JWT Authentication Middleware
     public static function authenticate($authController, $handler) {
