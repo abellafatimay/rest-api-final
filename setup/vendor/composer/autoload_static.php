@@ -7,21 +7,95 @@ namespace Composer\Autoload;
 class ComposerStaticInit20fad51902f91e7fd3039e016a6556b5
 {
     public static $prefixLengthsPsr4 = array (
+        'V' => 
+        array (
+            'Views\\Core\\' => 11,
+        ),
+        'R' => 
+        array (
+            'Router\\' => 7,
+            'Responses\\' => 10,
+            'Requests\\' => 9,
+        ),
+        'M' => 
+        array (
+            'Models\\' => 7,
+            'Middleware\\' => 11,
+        ),
         'F' => 
         array (
             'Firebase\\JWT\\' => 13,
         ),
+        'C' => 
+        array (
+            'Controllers\\' => 12,
+            'Classes\\' => 8,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'Views\\Core\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Views/Core',
+        ),
+        'Router\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Router',
+        ),
+        'Responses\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Responses',
+        ),
+        'Requests\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Requests',
+        ),
+        'Models\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Models',
+        ),
+        'Middleware\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Middleware',
+        ),
         'Firebase\\JWT\\' => 
         array (
             0 => __DIR__ . '/..' . '/firebase/php-jwt/src',
+        ),
+        'Controllers\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../Controllers',
+        ),
+        'Classes\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/../classes',
         ),
     );
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
+        'Controllers\\AuthController\\AuthController' => __DIR__ . '/../..' . '/../Controllers/AuthController/AuthController.php',
+        'Controllers\\HomeController\\HomeController' => __DIR__ . '/../..' . '/../Controllers/HomeController/HomeController.php',
+        'Controllers\\UserController\\UserController' => __DIR__ . '/../..' . '/../Controllers/UserController/UserController.php',
+        'Firebase\\JWT\\BeforeValidException' => __DIR__ . '/..' . '/firebase/php-jwt/src/BeforeValidException.php',
+        'Firebase\\JWT\\CachedKeySet' => __DIR__ . '/..' . '/firebase/php-jwt/src/CachedKeySet.php',
+        'Firebase\\JWT\\ExpiredException' => __DIR__ . '/..' . '/firebase/php-jwt/src/ExpiredException.php',
+        'Firebase\\JWT\\JWK' => __DIR__ . '/..' . '/firebase/php-jwt/src/JWK.php',
+        'Firebase\\JWT\\JWT' => __DIR__ . '/..' . '/firebase/php-jwt/src/JWT.php',
+        'Firebase\\JWT\\JWTExceptionWithPayloadInterface' => __DIR__ . '/..' . '/firebase/php-jwt/src/JWTExceptionWithPayloadInterface.php',
+        'Firebase\\JWT\\Key' => __DIR__ . '/..' . '/firebase/php-jwt/src/Key.php',
+        'Firebase\\JWT\\SignatureInvalidException' => __DIR__ . '/..' . '/firebase/php-jwt/src/SignatureInvalidException.php',
+        'Middleware\\Middleware' => __DIR__ . '/../..' . '/../Middleware/Middleware.php',
+        'Models\\DataRepositoryInterface\\DataRepositoryInterface' => __DIR__ . '/../..' . '/../Models/DataRepositoryInterface/DataRepositoryInterface.php',
+        'Models\\Database\\Database' => __DIR__ . '/../..' . '/../Models/Database/Database.php',
+        'Models\\ORM\\ORM' => __DIR__ . '/../..' . '/../Models/ORM/ORM.php',
+        'Models\\UserRepository\\UserRepository' => __DIR__ . '/../..' . '/../Models/UserRepository/UserRepository.php',
+        'Requests\\RequestInterface\\RequestInterface' => __DIR__ . '/../..' . '/../Requests/RequestInterface/RequestInterface.php',
+        'Requests\\Request\\Request' => __DIR__ . '/../..' . '/../Requests/Request/Request.php',
+        'Responses\\Response' => __DIR__ . '/../..' . '/../Responses/Response.php',
+        'Router\\Router' => __DIR__ . '/../..' . '/../Router/Router.php',
+        'Views\\Core\\View' => __DIR__ . '/../..' . '/../Views/Core/View.php',
+        'classes\\RouteMatcher' => __DIR__ . '/../..' . '/../classes/RouteMatcher.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

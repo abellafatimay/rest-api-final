@@ -1,7 +1,16 @@
 <?php
-header('Content-Type: application/json');
 
 require_once 'init.php';
+
+use Models\Database\Database;
+use Models\ORM\ORM;
+use Models\UserRepository\UserRepository;
+use Controllers\AuthController\AuthController;
+use Requests\Request\Request;
+use Controllers\UserController\UserController;
+use Router\Router;
+use classes\RouteMatcher;
+use Responses\Response;
 
 // Initialize the database connection
 $db = new Database('localhost', 'root', 'root', 'rest_api');
@@ -33,10 +42,12 @@ foreach ($routes as $route) {
 }
 
 $response = $router->dispatch();
+error_log('Response type: ' . get_class($response));
 if ($response instanceof Response) {
     $response->send();
 } else {
-    // fallback in case something else is returned (not required if all handlers return Response)
+    // Log what we got instead
+    error_log('Unexpected response type: ' . print_r($response, true));
     http_response_code(200);    
     echo json_encode($response);
 }

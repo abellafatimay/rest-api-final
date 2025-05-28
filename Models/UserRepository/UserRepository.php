@@ -2,6 +2,9 @@
 
 namespace Models\UserRepository;
 
+use Models\DataRepositoryInterface\DataRepositoryInterface;
+use Models\ORM\ORM;
+
 class UserRepository implements DataRepositoryInterface {
     private $orm;
 

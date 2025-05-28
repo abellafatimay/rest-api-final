@@ -1,9 +1,9 @@
 <?php
 
-namespace Controllers;
+namespace Controllers\UserController;
 
-use Models\DataRepositoryInterface;
-use Interfaces\RequestInterface;
+use Models\DataRepositoryInterface\DataRepositoryInterface;
+use Requests\RequestInterface\RequestInterface;
 use Responses\Response;
 
 class UserController {

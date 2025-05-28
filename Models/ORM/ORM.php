@@ -2,6 +2,8 @@
 
 namespace Models\ORM;
 
+use Models\Database\Database;
+
 
 class ORM {
     private $connection;

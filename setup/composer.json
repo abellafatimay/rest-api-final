@@ -10,7 +10,9 @@
             "Router\\": "../Router/",
             "Middleware\\": "../Middleware/",
             "Requests\\": "../Requests/",
-            "Classes\\": "../classes/" 
+            "Classes\\": "../classes/",
+             "Views\\Core\\": "../Views/Core/" 
+            
         }
     }
 }

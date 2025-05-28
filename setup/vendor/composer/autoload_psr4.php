@@ -6,5 +6,13 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Views\\Core\\' => array($baseDir . '/../Views/Core'),
+    'Router\\' => array($baseDir . '/../Router'),
+    'Responses\\' => array($baseDir . '/../Responses'),
+    'Requests\\' => array($baseDir . '/../Requests'),
+    'Models\\' => array($baseDir . '/../Models'),
+    'Middleware\\' => array($baseDir . '/../Middleware'),
     'Firebase\\JWT\\' => array($vendorDir . '/firebase/php-jwt/src'),
+    'Controllers\\' => array($baseDir . '/../Controllers'),
+    'Classes\\' => array($baseDir . '/../classes'),
 );
