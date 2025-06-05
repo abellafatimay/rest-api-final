@@ -1,10 +1,11 @@
 <?php
 
 use Middleware\Middleware;
-use Responses\Response; // Good practice to add this if you are creating Response objects
+use Responses\Response;
+use Views\Core\View;
+use Controllers\HomeController\HomeController;
 
-// These variables ($authController, $controller) are expected to be available
-// in the scope where this file is included (i.e., index.php).
+// Remove any controller initialization from here - they should come from index.php
 
 return [
     // Public Routes
@@ -12,24 +13,47 @@ return [
         'method' => 'POST',
         'path' => '/register',
         'handler' => function () use ($authController) {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $response = $authController->register($data); // Assuming $authController->register() returns a Response object
-            return $response; // Return the response object
+            $response = $authController->processRegistration();
+            
+            // This manual redirect handling might be problematic
+            if (isset($response->getHeaders()['Location'])) {
+                header('Location: ' . $response->getHeaders()['Location']);
+                exit;
+            }
+            
+            return $response;
         }
     ],
     [
         'method' => 'POST',
         'path' => '/login',
         'handler' => function () use ($authController) {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $response = $authController->login($data); // Assuming $authController->login() returns a Response object
-            return $response; // Return the response object
+            $response = $authController->processLogin();
+            return $response; // Let index.php handle the response
         }
     ],
     [
         'method' => 'GET',
         'path' => '/',
-        'handler' => [new \Controllers\HomeController\HomeController(), 'index']
+        'handler' => [new HomeController(), 'index']
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/login',
+        'handler' => function () {
+            $data = ['title' => 'Login', 'heading' => 'User Login'];
+            $html = View::render('Auth/login.php', $data);
+            return new Response($html, 200, ['Content-Type' => 'text/html']);
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/register',
+        'handler' => function () {
+            $data = ['title' => 'Register', 'heading' => 'Create an Account'];
+            $html = View::render('Auth/register.php', $data);
+            return new Response($html, 200, ['Content-Type' => 'text/html']);
+        }
     ],
 
     // Protected Routes
@@ -37,54 +61,284 @@ return [
         'method' => 'GET',
         'path' => '/users',
         'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
-            // Assuming $controller->getAllUsers() returns the data (e.g., an array of users)
-            // and not a Response object itself. If it returns a Response object, just return that.
-            $usersData = $controller->getAllUsers();
-            return new Response($usersData, 200); // Create and return the Response object
+            return $controller->getAllUsers(); // UserController already returns Response object
         })
     ],
     [
         'method' => 'GET',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            $userData = $controller->getUserById($id);
-            if (!$userData) {
-                return new Response(['error' => 'User not found'], 404); // Create and return
-            }
-            return new Response($userData, 200); // Create and return
+            return $controller->getUserById($id); // UserController already returns Response object
         })
     ],
     [
         'method' => 'POST',
         'path' => '/users',
         'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $createdUserData = $controller->createUser($data); // Assuming this returns the created user data
-            return new Response($createdUserData, 201); // Create and return
+            return $controller->createUser(); // UserController already returns Response object
         })
     ],
     [
         'method' => 'PUT',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            $data = json_decode(file_get_contents('php://input'), true);
-            $updatedUserData = $controller->updateUser($id, $data);
-            if (!$updatedUserData) {
-                return new Response(['error' => 'User not found or not updated'], 404); // Create and return
-            }
-            return new Response($updatedUserData, 200); // Create and return
+            return $controller->updateUser($id); // UserController already returns Response object
         })
     ],
     [
         'method' => 'DELETE',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            $deleted = $controller->deleteUser($id); // Assuming this returns true on success, false on failure
-            if (!$deleted) {
-                return new Response(['error' => 'User not found or could not be deleted'], 404); // Create and return
+            return $controller->deleteUser($id); // UserController already returns Response object
+        })
+    ],
+    // Protected Routes - Views that should only be accessible to logged-in users
+    [
+        'method' => 'GET',
+        'path' => '/dashboard', // Example protected view
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
+            // Get user data from repository or controller
+            $userData = $controller->getUserById($userId)->getBody();
+            
+            $data = [
+                'title' => 'Dashboard',
+                'user_id' => $userId,
+                'user_data' => $userData,
+                'is_admin' => isset($userData['role']) && $userData['role'] === 'admin'
+            ];
+            $html = View::render('Dashboard/dashboard.php', $data);
+            return new Response($html, 200, ['Content-Type' => 'text/html']);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/profile',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->showProfile($userId);
+        })
+    ],
+    // Admin-only view example:
+    [
+        'method' => 'GET',
+        'path' => '/admin',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($adminController) {
+            return $adminController->index(); // This remains for the main admin dashboard
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/users',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($userAdminController) { // <<< CHANGED to $userAdminController
+            return $userAdminController->index(); // <<< Calls the method in UserAdminController
+        })
+    ],
+    // Admin user management routes
+    [
+        'method' => 'GET',
+        'path' => '/admin/users/create',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($userAdminController) {
+            return $userAdminController->create();
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/users',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($userAdminController) {
+            return $userAdminController->store();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/users/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId, $id) use ($userAdminController) {
+            return $userAdminController->show($id);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/users/{id}/edit',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId, $id) use ($userAdminController) {
+            return $userAdminController->edit($id);
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/users/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId, $id) use ($userAdminController) {
+            return $userAdminController->update($id);
+        })
+    ],
+    [
+        'method' => 'POST', // Using POST with a _method field for DELETE since HTML forms don't support DELETE natively
+        'path' => '/admin/users/{id}/delete',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId, $id) use ($userAdminController) {
+            return $userAdminController->delete($id);
+        })
+    ],
+    // Logout Route
+    [
+        'method' => 'GET',
+        'path' => '/logout',
+        'handler' => function () use ($authController) {
+            $response = $authController->logout();
+            
+            // This manual redirect handling might be problematic
+            if (isset($response->getHeaders()['Location'])) {
+                header('Location: ' . $response->getHeaders()['Location']);
+                exit;
             }
-            return new Response(null, 204); // 204 No Content for successful deletion, return
+            
+            return $response;
+        }
+    ],
+    // Process profile update
+    [
+        'method' => 'POST',
+        'path' => '/profile/update',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->updateProfile($userId);
+        })
+    ],
+    // Process password change
+    [
+        'method' => 'POST',
+        'path' => '/profile/change-password',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->changePassword($userId);
+        })
+    ],
+    // Book routes
+    [
+        'method' => 'GET',
+        'path' => '/admin/books',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($bookController) {
+            return $bookController->index();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/books/create',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($bookController) {
+            return $bookController->create();
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/books/store',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($bookController) {
+            return $bookController->store();
+        })
+    ],
+    // You'll also need routes for edit, show, etc.
+    [
+        'method' => 'GET',
+        'path' => '/admin/books/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
+            return $bookController->show($id); // Fixed - direct parameter
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/books/{id}/edit',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
+            // Assuming BookController will have an edit method
+            return $bookController->edit($id); 
+        })
+    ],
+    [
+        'method' => 'POST', // Or PUT, but POST is consistent with user updates
+        'path' => '/admin/books/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
+            // Assuming BookController will have an update method
+            return $bookController->update($id); 
+        })
+    ],
+    [
+        'method' => 'POST', // Consistent with user delete route (using POST for form submission)
+        'path' => '/admin/books/{id}/delete',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
+            // Assuming BookController will have a delete method
+            return $bookController->delete($id); 
+        })
+    ],
+    // Category routes (now $categoryController will be defined)
+    [
+        'method' => 'GET',
+        'path' => '/admin/categories',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($categoryController) {
+            return $categoryController->index();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/categories/create',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($categoryController) {
+            return $categoryController->create();
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/categories',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($categoryController) {
+            return $categoryController->store();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/categories/{id}/edit',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($categoryController) {
+            return $categoryController->edit($id);
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/categories/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($categoryController) {
+            return $categoryController->update($id);
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/categories/{id}/delete',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($categoryController) {
+            return $categoryController->delete($id);
+        })
+    ],
+    // Public category routes
+    [
+        'method' => 'GET',
+        'path' => '/categories',
+        'handler' => function() use ($categoryController) {
+            return $categoryController->list();
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/categories/{id}',
+        'handler' => function($id) use ($categoryController) {
+            return $categoryController->view($id);
+        }
+    ],
+    // Book-Category Management Routes
+    [
+        'method' => 'GET',
+        'path' => '/admin/book-categories',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($bookController) {
+            return $bookController->manageCategories();
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/admin/books/{bookId}/categories',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $bookId) use ($bookController) {
+            return $bookController->updateCategories($bookId);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/admin/books/{bookId}/categories',
+        'handler' => Middleware::authorize($authController, 'admin', function($userId, $bookId) use ($bookController) {
+            return $bookController->getCategories($bookId);
         })
     ],
 ];
-

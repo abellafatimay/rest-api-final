@@ -8,10 +8,18 @@ class Request implements RequestInterface {
         return $_SERVER['REQUEST_METHOD'];
     }
 
-    public function getPath(): string {
+    public function getPath(): string 
+    {
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        // Ensure that the root path is represented as '/' and not an empty string
-        return $path === '' ? '/' : rtrim($path, '/');
+        error_log("Original path from REQUEST_URI: " . $path);
+        
+        // Always return '/' for empty or root paths
+        if (empty($path) || $path === '/') {
+            return '/';
+        }
+        
+        // Remove trailing slash for non-root paths
+        return rtrim($path, '/');
     }
 
     public function getBody(): array {
@@ -43,5 +51,34 @@ class Request implements RequestInterface {
     public function getHeader(string $name): ?string {
         $headers = $this->getHeaders();
         return $headers[$name] ?? null;
+    }
+
+    /**
+     * Check if the request method matches the given method
+     *
+     * @param string $method HTTP method to check (GET, POST, etc.)
+     * @return bool True if the method matches
+     */
+    public function isMethod($method) {
+        return strtoupper($_SERVER['REQUEST_METHOD']) === strtoupper($method);
+    }
+    
+    /**
+     * Get a parameter from the request
+     * 
+     * @param string $name Parameter name
+     * @param mixed $default Default value if parameter doesn't exist
+     * @return mixed Parameter value or default
+     */
+    public function getParam($name, $default = null) {
+        if ($this->isMethod('GET')) {
+            return $_GET[$name] ?? $default;
+        } else if ($this->isMethod('POST')) {
+            return $_POST[$name] ?? $default;
+        }
+        
+        // For other methods, check the parsed request body
+        $body = $this->getBody();
+        return $body[$name] ?? $default;
     }
 }

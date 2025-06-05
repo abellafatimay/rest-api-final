@@ -36,10 +36,58 @@ class UserRepository implements DataRepositoryInterface {
         return $this->orm->table('users')->select()->where('email', '=', $email)->first();
     }
 
+    // If you want to keep findByEmail as an alias, have it call the implementation directly
+    public function findByEmail($email) {
+        return $this->getByEmail($email);
+    }
+
     public function updateToken($userId, $token) {
-        return $this->orm
-            ->table('users')
-            ->where('id', '=', $userId)
-            ->update(['token' => $token]);
+        try {
+            // Use ORM instead of direct PDO
+            $result = $this->orm->table('users')
+                ->where('id', '=', $userId)
+                ->update(['token' => $token]);
+            
+            error_log("Token update for user $userId: " . ($result ? 'success' : 'failed'));
+            return $result;
+        } catch (\Exception $e) {
+            error_log('Token update error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get paginated list of users
+     */
+    public function getPaginated(int $limit = 10, int $offset = 0): array
+    {
+        // Get all users and manually implement pagination
+        // This is less efficient but will work with your ORM's public API
+        $allUsers = $this->orm->table('users')->select()->get();
+        
+        // Sort by ID descending (newest first)
+        usort($allUsers, function($a, $b) {
+            return $b['id'] <=> $a['id']; 
+        });
+        
+        // Apply pagination
+        return array_slice($allUsers, $offset, $limit);
+    }
+
+    /**
+     * Get total number of users
+     */
+    public function getTotalCount(): int
+    {
+        // Count all users
+        $allUsers = $this->orm->table('users')->select()->get();
+        return count($allUsers);
+    }
+
+    /**
+     * Count all users in the repository
+     */
+    public function countAll() {
+        return $this->orm->count('users');
     }
 }
