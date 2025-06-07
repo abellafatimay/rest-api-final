@@ -13,7 +13,10 @@ class ORM {
     private $whereConditions = [];
     private $whereParams = [];
     private $orderByClause = '';
-    private $joinClauses = [];
+    private $joinClauses = [];  // Store JOIN clauses
+    private $limitClause = '';
+    private $offsetClause = '';
+    private $currentWhereGroupType = 'AND'; // To track if we are in an AND or OR chain
 
     public function __construct(Database $db) {
         $this->connection = $db;
@@ -22,6 +25,19 @@ class ORM {
     // Set the table to operate on
     public function table($table) {
         $this->table = $table;
+        // Reset parts of the query that are table-specific or might carry over
+        $this->sql = ''; // select() will rebuild this
+        $this->params = []; // Reset general params
+        $this->whereConditions = [];
+        $this->whereParams = [];
+        $this->joinClauses = [];
+        // Keep orderBy, limit, offset if you want them to persist across table changes,
+        // otherwise reset them too. For typical use, resetting them is safer.
+        $this->orderByClause = '';
+        $this->limitClause = '';
+        $this->offsetClause = '';
+        $this->currentWhereGroupType = 'AND'; // Reset group type
+
         return $this;
     }
 
@@ -39,25 +55,44 @@ class ORM {
                 return $field;
             }
             // Add table name prefix
+            // Ensure $this->table is set before calling this, which table() does.
+            if (empty($this->table)) {
+                // Or throw an exception: "Table not set before select"
+                error_log("ORM Warning: Table not set before select. Field '{$field}' may not be qualified.");
+                return $field; 
+            }
             return $this->table . '.' . $field;
         }, $fields);
         
-        $this->sql = 'SELECT ' . implode(', ', $selectedFields) . ' FROM ' . $this->table . ' ';
+        // If $this->sql is already partially built (e.g. by table()), append, otherwise start new.
+        // However, table() now resets $this->sql, so this should always be a new SELECT.
+        $this->sql = 'SELECT ' . implode(', ', $selectedFields) . ' FROM `' . $this->table . '` '; // Added backticks for table
         return $this;
     }
 
     // Add a WHERE clause
     public function where($field, $operator, $value) {
-        $this->whereConditions[] = "$field $operator ?";
+        // If this is the first condition, or the previous was an OR, start a new AND group
+        if (empty($this->whereConditions) || $this->currentWhereGroupType === 'OR_PENDING') {
+            $this->whereConditions[] = ['type' => 'AND', 'condition' => "$field $operator ?"];
+        } else { // Add to existing AND group
+            $this->whereConditions[count($this->whereConditions)-1]['condition'] .= " AND $field $operator ?";
+        }
         $this->whereParams[] = $value;
+        $this->currentWhereGroupType = 'AND';
         return $this;
     }
 
     // Add an OR WHERE clause
     public function orWhere($field, $operator, $value) {
-        // For simplicity, treat as AND for now, or implement OR logic if needed
-        $this->whereConditions[] = "$field $operator ?";
+        if (empty($this->whereConditions)) {
+            // If orWhere is the first condition, treat it as a normal where
+            return $this->where($field, $operator, $value);
+        }
+        // Add as a new OR condition group
+        $this->whereConditions[] = ['type' => 'OR', 'condition' => "$field $operator ?"];
         $this->whereParams[] = $value;
+        $this->currentWhereGroupType = 'OR_PENDING'; // Signal that the next 'where' should start a new AND group if not another orWhere
         return $this;
     }
 
@@ -76,28 +111,17 @@ class ORM {
      * Add a JOIN clause to the query
      */
     public function join($table, $first, $operator, $second): self {
-        // Make sure the table name is properly escaped
-        $table = trim($table, '`');
-        
-        // Handle the case where the join is on a foreign key
-        if (strpos($first, '.') === false) {
-            $first = $this->table . '.' . $first;
-        }
-        if (strpos($second, '.') === false) {
-            $second = $table . '.' . $second;
-        }
-
-        $this->joinClauses[] = " INNER JOIN `{$table}` ON {$first} {$operator} {$second}";
+        // Store the JOIN clause
+        $this->joinClauses[] = "INNER JOIN `$table` ON $first $operator $second";
         return $this;
     }
-
+    
     /**
      * Add a LEFT JOIN clause to the query
      */
     public function leftJoin($table, $first, $operator, $second): self {
-        // Make sure the table name is properly escaped
-        $table = trim($table, '`');
-        $this->joinClauses[] = " LEFT JOIN `{$table}` ON {$first} {$operator} {$second}";
+        // Store the LEFT JOIN clause
+        $this->joinClauses[] = "LEFT JOIN `$table` ON $first $operator $second";
         return $this;
     }
 
@@ -124,59 +148,117 @@ class ORM {
         return $this;
     }
 
-    // Execute the query and fetch all results
+    /**
+     * Execute query and get results
+     */
     public function get() {
-        // Insert JOINs after FROM <table>
+        // Start with basic SELECT
+        if (strpos($this->sql, 'SELECT') === false) {
+            $this->select();
+        }
+        
+        // Insert JOINs after FROM table
         if (!empty($this->joinClauses)) {
-            // Find position after 'FROM <table>'
-            if (preg_match('/^(SELECT\s.+?\sFROM\s+\S+)/i', $this->sql, $matches)) {
+            // Find position after 'FROM table'
+            if (preg_match('/^(SELECT\s.+?\sFROM\s+\S+\s*)/i', $this->sql, $matches)) {
                 $fromPos = strlen($matches[1]);
-                // Insert JOINs right after FROM <table>
-                $this->sql = substr($this->sql, 0, $fromPos) . implode(' ', $this->joinClauses) . substr($this->sql, $fromPos);
+                // Insert JOINs right after FROM table
+                $this->sql = substr($this->sql, 0, $fromPos) . ' ' . 
+                             implode(' ', $this->joinClauses) . 
+                             substr($this->sql, $fromPos);
             } else {
                 // Fallback: append JOINs at the end
-                $this->sql .= implode(' ', $this->joinClauses);
+                $this->sql .= ' ' . implode(' ', $this->joinClauses);
             }
         }
-
+        
         // Add WHERE conditions
         if (!empty($this->whereConditions)) {
-            $this->sql .= ' WHERE ' . implode(' AND ', $this->whereConditions);
-            $this->params = array_merge($this->params, $this->whereParams);
+            $sqlWhereParts = [];
+            $firstCondition = true;
+            foreach ($this->whereConditions as $group) {
+                if (!$firstCondition) {
+                    $sqlWhereParts[] = $group['type']; // Add OR or AND between groups
+                }
+                $sqlWhereParts[] = "({$group['condition']})"; // Group each condition for clarity
+                $firstCondition = false;
+            }
+            $this->sql .= ' WHERE ' . implode(' ', $sqlWhereParts);
+            $this->params = array_merge($this->params ?? [], $this->whereParams);
         }
-
-        // Add ORDER BY if set
+        
+        // Add ORDER BY if needed
         if (!empty($this->orderByClause)) {
             $this->sql .= $this->orderByClause;
         }
 
-        // For debugging
+        // Add limit and offset if they exist
+        if (!empty($this->limitClause)) {
+            $this->sql .= $this->limitClause;
+        }
+        
+        if (!empty($this->offsetClause)) {
+            $this->sql .= $this->offsetClause;
+        }
+
+        // Debug
         error_log("Generated SQL: " . $this->sql);
         error_log("Parameters: " . print_r($this->params, true));
-
+        
         $result = $this->connection->query($this->sql, $this->params);
         $this->reset();
         return $result;
     }
 
-    // Execute the query and fetch a single result
+    /**
+     * Get the first result
+     */
     public function first() {
-        // If no SELECT clause exists, add one
+        // Ensure we're starting with a SELECT
         if (strpos($this->sql, 'SELECT') === false) {
-            $this->sql = 'SELECT * FROM ' . $this->table . ' ' . $this->sql;
+            $this->select();
         }
         
-        // Add LIMIT 1 to get only the first result
+        // Insert JOINs after FROM table
+        if (!empty($this->joinClauses)) {
+            // Find position after 'FROM table'
+            if (preg_match('/^(SELECT\s.+?\sFROM\s+\S+\s*)/i', $this->sql, $matches)) {
+                $fromPos = strlen($matches[1]);
+                // Insert JOINs right after FROM table
+                $this->sql = substr($this->sql, 0, $fromPos) . ' ' . 
+                             implode(' ', $this->joinClauses) . 
+                             substr($this->sql, $fromPos);
+            } else {
+                // Fallback: append JOINs at the end
+                $this->sql .= ' ' . implode(' ', $this->joinClauses);
+            }
+        }
+        
+        // Add WHERE conditions
+        if (!empty($this->whereConditions)) {
+            $sqlWhereParts = [];
+            $firstCondition = true;
+            foreach ($this->whereConditions as $group) {
+                if (!$firstCondition) {
+                    $sqlWhereParts[] = $group['type'];
+                }
+                $sqlWhereParts[] = "({$group['condition']})";
+                $firstCondition = false;
+            }
+            $this->sql .= ' WHERE ' . implode(' ', $sqlWhereParts);
+            $this->params = array_merge($this->params ?? [], $this->whereParams);
+        }
+        
+        // Add LIMIT 1
         $this->sql .= ' LIMIT 1';
         
-        // Execute the query
+        // Debug
+        error_log("Generated SQL (first): " . $this->sql);
+        error_log("Parameters (first): " . print_r($this->params, true));
+        
         $result = $this->connection->query($this->sql, $this->params);
-        
-        // Reset SQL and params
         $this->reset();
-        
-        // Return the first row or null if nothing found
-        return $result ? $result[0] : null;
+        return !empty($result) ? $result[0] : null;
     }
 
     // Insert a new record
@@ -224,6 +306,26 @@ class ORM {
         return $this->execute();
     }
 
+    /**
+     * Set limit for query
+     * @param int $limit
+     * @return $this
+     */
+    public function limit($limit) {
+        $this->limitClause = " LIMIT $limit";
+        return $this;
+    }
+
+    /**
+     * Set offset for query
+     * @param int $offset
+     * @return $this
+     */
+    public function offset($offset) {
+        $this->offsetClause = " OFFSET $offset";
+        return $this;
+    }
+
     // Execute the query
     private function execute() {
         $stmt = $this->connection->query($this->sql, $this->params);
@@ -232,31 +334,131 @@ class ORM {
     }
 
     /**
-     * Reset query builder state
+     * Reset query state
      */
-    private function reset(): void {
+    private function reset() {
         $this->sql = '';
-        $this->params = [];
+        $this->params = []; // General params used by execute()
         $this->whereConditions = [];
-        $this->whereParams = [];
-        $this->joinClauses = [];
+        $this->whereParams = []; // Params specific to where clauses
+        $this->joinClauses = [];  
         $this->orderByClause = '';
+        $this->limitClause = '';
+        $this->offsetClause = '';
+        // $this->table = null; // Optionally reset table too, or let table() manage it.
+        $this->currentWhereGroupType = 'AND'; // Reset group type
+    }
+
+    /**
+     * Adds a nested group of conditions ANDed with preceding conditions.
+     * e.g., ->where('status', '=', 1)->andWhereNested(function($q) {
+     *        $q->where('type', '=', 'A')->orWhere('type', '=', 'B');
+     *   })
+     * results in: WHERE (status = 1) AND ((type = 'A') OR (type = 'B'))
+     * Note: This is a simplified version. A full implementation might need more robust state management.
+     */
+    public function andWhereNested(callable $callback): self {
+        $nestedOrm = new self($this->connection); // Create a new ORM instance for the nested query
+        // We don't need to set $nestedOrm->table as the callback will primarily use where/orWhere,
+        // and field names should be qualified by the caller if necessary.
+
+        call_user_func($callback, $nestedOrm); // Execute the callback to build nested conditions
+
+        if (!empty($nestedOrm->whereConditions)) {
+            $nestedSqlParts = [];
+            $firstNestedCondition = true;
+            foreach ($nestedOrm->whereConditions as $group) {
+                if (!$firstNestedCondition) {
+                    $nestedSqlParts[] = $group['type']; // This will be 'OR' for the inner group
+                }
+                // The group['condition'] itself might be an ANDed string if multiple wheres were called in the nested callback
+                // but for a simple B OR C OR D, each will be its own group.
+                $nestedSqlParts[] = "({$group['condition']})"; 
+                $firstNestedCondition = false;
+            }
+            $nestedConditionString = implode(' ', $nestedSqlParts); // This forms the (B OR C OR D) part
+
+            // Now, add this as an AND condition to the main query's whereConditions array
+            $conditionToAdd = "($nestedConditionString)"; // Enclose the whole nested group in parentheses
+
+            if (empty($this->whereConditions) || $this->currentWhereGroupType === 'OR_PENDING') {
+                // If it's the first main condition, or follows an OR, start a new AND group for this nested block
+                $this->whereConditions[] = ['type' => 'AND', 'condition' => $conditionToAdd];
+            } else {
+                // Append to the last AND group of the main query
+                // This ensures it's ANDed with the previous set of conditions
+                $this->whereConditions[count($this->whereConditions)-1]['condition'] .= " AND " . $conditionToAdd;
+            }
+            
+            // Merge parameters from the nested query
+            $this->whereParams = array_merge($this->whereParams, $nestedOrm->whereParams);
+            // The overall group type remains AND or becomes AND
+            $this->currentWhereGroupType = 'AND'; 
+        }
+        return $this;
     }
 
     // Count records in the table
     public function count(string $column = '*'): int {
-        $query = "SELECT COUNT($column) as count FROM {$this->table}";
-        
-        if (!empty($this->whereConditions)) {
-            $query .= ' WHERE ' . implode(' AND ', $this->whereConditions);
-            $params = $this->whereParams;
-        } else {
-            $params = [];
+        // Determine the field to count. For safety with joins, COUNT(DISTINCT main_table.id) is often best.
+        $countField = $column;
+        if ($column === '*' && !empty($this->joinClauses)) {
+            // If joins are present and user wants COUNT(*), it's safer to count distinct IDs of the primary table
+            $countField = "DISTINCT {$this->table}.id"; // Assuming 'id' is the primary key
+        } else if (strpos($column, '.') === false && $column !== '*') {
+            // If column is not qualified and not '*', qualify with the current table
+            $countField = "{$this->table}.{$column}";
         }
+        // If $column is already qualified (e.g., "DISTINCT books.id") or is just "*", use as is.
 
-        $result = $this->connection->query($query, $params);
-        $this->reset();
+
+        $query = "SELECT COUNT({$countField}) as count_result FROM {$this->table}";
+        $paramsForCount = []; // Use a local params array for this count query
+
+        // Insert JOINs if any
+        if (!empty($this->joinClauses)) {
+            $query .= ' ' . implode(' ', $this->joinClauses);
+        }
         
-        return isset($result[0]['count']) ? (int) $result[0]['count'] : 0;
+        // Add WHERE conditions (using the same logic as get()/first())
+        if (!empty($this->whereConditions)) {
+            $sqlWhereParts = [];
+            $firstCondition = true;
+            foreach ($this->whereConditions as $group) {
+                if (!$firstCondition) {
+                    $sqlWhereParts[] = $group['type']; 
+                }
+                $sqlWhereParts[] = "({$group['condition']})";
+                $firstCondition = false;
+            }
+            $query .= ' WHERE ' . implode(' ', $sqlWhereParts);
+            $paramsForCount = $this->whereParams; // Use the accumulated whereParams
+        }
+        
+        error_log("Generated SQL (count): " . $query);
+        error_log("Parameters (count): " . print_r($paramsForCount, true));
+
+        $result = $this->connection->query($query, $paramsForCount);
+        
+        // The count method is a terminal operation, it executes and returns a value.
+        // It should not affect the state of a query being built for a subsequent get() or first().
+        // However, the current ORM design calls reset() in get/first/execute.
+        // To maintain consistency and allow BookRepository to call ->count() after building conditions:
+        // We will NOT reset the main ORM state here. The BookRepository will call ->get() or ->first()
+        // on the same ORM instance if it needs the data, or it will build a new query.
+        // If count is the *only* thing needed, the calling code should expect the ORM state to persist
+        // or manage it. For BookRepository, it builds conditions, then calls count(), then separately calls get().
+        // So, the state built for count() should be the same for get().
+        // The reset() is typically done AFTER a get() or first() or execute().
+        // Let's remove the $this->reset() from here to allow chaining if desired,
+        // or to let the final get()/first() call handle the reset.
+        // The BookRepository pattern is: build query, call count; build query (or reuse), call get.
+        // So, the state should persist after count for the get. The reset in get/first is key.
+
+        return isset($result[0]['count_result']) ? (int) $result[0]['count_result'] : 0;
+    }
+
+    public function getJoinClauses(): array { // Add this getter
+        return $this->joinClauses;
     }
 }

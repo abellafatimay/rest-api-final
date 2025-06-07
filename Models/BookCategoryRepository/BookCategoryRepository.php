@@ -42,4 +42,12 @@ class BookCategoryRepository {
         
         return true;
     }
+    
+    public function getTotalCount() {
+        $result = $this->orm->table('categories')
+            ->select('COUNT(*) as count')
+            ->first();
+        
+        return $result ? (int)$result['count'] : 0;
+    }
 }

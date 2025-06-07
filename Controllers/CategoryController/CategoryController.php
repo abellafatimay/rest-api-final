@@ -1,10 +1,9 @@
 <?php
 
-
 namespace Controllers\CategoryController;
 
 use Models\CategoryRepository\CategoryRepository;
-use Models\BookRepository\BookRepository; // Add this line
+use Models\BookRepository\BookRepository; // Add this import
 use Responses\Response;
 use Views\Core\View;
 
@@ -12,18 +11,34 @@ class CategoryController {
     private $categoryRepository;
     private $bookRepository; // Add this property
     
-    public function __construct(CategoryRepository $categoryRepository, BookRepository $bookRepository) { // Update constructor
+    public function __construct(CategoryRepository $categoryRepository, BookRepository $bookRepository) {
         $this->categoryRepository = $categoryRepository;
-        $this->bookRepository = $bookRepository; // Set the property
+        $this->bookRepository = $bookRepository; // Initialize bookRepository
     }
     
     // Handles base category CRUD
     public function index() {
-        $categories = $this->categoryRepository->getAll();
+        // Get pagination parameters
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $perPage = 10;
+        
+        // Calculate offset
+        $offset = ($page - 1) * $perPage;
+        
+        // Get categories with pagination
+        $categories = $this->categoryRepository->getPaginated($perPage, $offset);
+        $totalCategories = $this->categoryRepository->getTotalCount();
+        $totalPages = ceil($totalCategories / $perPage);
         
         $html = View::render('Admin/Categories/Categories.php', [
             'title' => 'Category Management',
-            'categories' => $categories
+            'categories' => $categories,
+            'pagination' => [
+                'current' => $page,
+                'perPage' => $perPage,
+                'total' => $totalCategories,
+                'totalPages' => $totalPages
+            ]
         ]);
         
         return new Response($html, 200, ['Content-Type' => 'text/html']);
@@ -145,7 +160,13 @@ class CategoryController {
     
     // Public methods
     public function list() {
+        // Get all categories
         $categories = $this->categoryRepository->getAll();
+        
+        // For each category, get the book count
+        foreach ($categories as &$category) {
+            $category['book_count'] = $this->bookRepository->getCategoryBookCount($category['id']);
+        }
         
         $html = View::render('Categories/List.php', [
             'title' => 'Book Categories',

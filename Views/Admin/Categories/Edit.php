@@ -21,7 +21,7 @@
         </div>
 
         <button type="submit" class="btn btn-primary">Update Category</button>
-        <a href="/admin/categories" class="btn btn-secondary">Cancel</a>
+        <a href="/admin/book-categories" class="btn btn-secondary">Cancel</a>
     </form>
 </div>
 

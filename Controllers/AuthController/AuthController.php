@@ -151,9 +151,10 @@ class AuthController
         if ($user && password_verify($data['password'], $user['password'])) {
             $payload = [
                 'iss' => 'your-domain.com',
-                'sub' => $user['id'],
+                'user_id' => $user['id'],  // Always use user_id, not sub
+                'role' => $user['role'],
                 'iat' => time(),
-                'exp' => time() + 3600 // Token expires in 1 hour
+                'exp' => time() + 3600
             ];
             $token = JWT::encode($payload, $this->secretKey, 'HS256');
 

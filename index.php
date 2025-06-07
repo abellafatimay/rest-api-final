@@ -29,6 +29,7 @@ use Requests\Request\Request;
 use Router\Router;
 use classes\RouteMatcher;
 use Responses\Response;
+use Controllers\CatalogController\CatalogController;
 
 // Initialize the database connection
 $db = new Database('localhost', 'root', 'root', 'rest_api');
@@ -53,6 +54,7 @@ $adminController = new AdminController($userRepository, $bookRepository, $catego
 $userAdminController = new UserAdminController($userRepository);
 $bookController = new BookController($bookRepository, $bookCategoryRepository);
 $categoryController = new CategoryController($categoryRepository, $bookRepository);
+$catalogController = new CatalogController($bookRepository, $categoryRepository);
 
 // Load routes and pass $authController and $controller
 $routes = include __DIR__ . '/routes.php';

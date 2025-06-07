@@ -39,7 +39,7 @@ include __DIR__ . '/../../layout/header.php';
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="category_id" class="form-label">Book Category</label>
-                            <select class="form-select" id="category_id" name="category_id">
+                            <select class="form-control" id="category_id" name="category_id">
                                 <option value="">Select a category...</option>
                                 <?php if (!empty($categories)): ?>
                                     <?php foreach ($categories as $category): ?>

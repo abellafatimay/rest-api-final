@@ -10,8 +10,6 @@ include __DIR__ . '/../../layout/header.php';
     <?php endif; ?>
 
     <form method="POST" action="/admin/books/<?php echo htmlspecialchars($book['id']); ?>" enctype="multipart/form-data">
-        <!-- If your router supports method spoofing for PUT/PATCH, you might add: -->
-        <!-- <input type="hidden" name="_method" value="PUT"> -->
 
         <div class="mb-3">
             <label for="title" class="form-label">Title</label>
@@ -29,21 +27,29 @@ include __DIR__ . '/../../layout/header.php';
         </div>
 
         <div class="row">
-            <div class="col-md-6 mb-3">
-                <label for="publication_year" class="form-label">Publication Year</label>
-                <input type="number" class="form-control" id="publication_year" name="publication_year" 
-                       min="1800" max="<?php echo date('Y'); ?>" 
-                       value="<?php echo htmlspecialchars($book['publication_year'] ?? ''); ?>">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="publication_year" class="form-label">Publication Year</label>
+                    <input type="number" class="form-control" id="publication_year" name="publication_year" min="1800" max="<?php echo date('Y'); ?>" value="<?php echo htmlspecialchars($book['publication_year'] ?? ''); ?>">
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label for="category_id" class="form-label">Book Category</label>
-                <select class="form-select" id="category_id" name="category_id">
-                    <option value="">Select a category...</option>
-                    <?php foreach ($categories as $category): ?>
-                        <?php $selected = (!empty($bookCategories) && in_array($category['id'], $bookCategories)) ? 'selected' : ''; ?>
-                        <option value="<?= $category['id'] ?>" <?= $selected ?>><?= htmlspecialchars($category['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="category_id" class="form-label">Book Category</label>
+                    <select class="form-control" id="category_id" name="category_id">
+                        <option value="">Select a category...</option>
+                        <?php if (!empty($categories)): ?>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?= htmlspecialchars($category['id']) ?>" 
+                                    <?= ((isset($book['category_id']) && $book['category_id'] == $category['id']) ? 'selected' : '') ?>>
+                                    <?= htmlspecialchars($category['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <option value="">No categories available</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
             </div>
         </div>
 

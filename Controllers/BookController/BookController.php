@@ -88,7 +88,7 @@ class BookController {
         $bookId = $this->bookRepository->create($data);
 
         if ($bookId && !empty($_POST['category_id'])) {
-            $this->bookCategoryRepository->updateCategories($bookId, [$_POST['category_id']]);
+            $this->bookRepository->updateCategory($bookId, $_POST['category_id']);
         }
         
         // Handle categories if present
@@ -128,90 +128,41 @@ class BookController {
 
     public function edit($id) {
         $book = $this->bookRepository->getById($id);
-
-        if (!$book) {
-            return new Response(
-                ['redirect' => '/admin/books?error=not-found'],
-                303,
-                ['Location' => '/admin/books?error=not-found']
-            );
-        }
-
-        // Fetch all categories
         $categories = $this->categoryRepository->getAll();
 
-        // Fetch the book's current categories (should return an array of category objects)
-        $bookCategories = array_map(
-            function($cat) { return $cat['id']; },
-            $this->bookRepository->getCategories($book['id'])
-        );
-
-        $html = View::render('Admin/Books/Edit.php', [
+        if (!$book) {
+            return new Response('Book not found', 404);
+        }
+        
+        $html = \Views\Core\View::render('Admin/Books/Edit.php', [
             'title' => 'Edit Book',
             'book' => $book,
-            'categories' => $categories,
-            'bookCategories' => $bookCategories
+            'categories' => $categories // Make sure this is being passed
         ]);
-
+        
         return new Response($html, 200, ['Content-Type' => 'text/html']);
     }
 
     public function update($id) {
-        $book = $this->bookRepository->getById($id);
-        if (!$book) {
-            return new Response(
-                ['redirect' => '/admin/books?error=not-found'],
-                303,
-                ['Location' => '/admin/books?error=not-found']
-            );
-        }
-
-        // Collect all form data
-        $data = [
-            'title' => $_POST['title'] ?? $book['title'],
-            'author' => $_POST['author'] ?? $book['author'],
-            'description' => $_POST['description'] ?? $book['description'],
-            'publication_year' => (int)($_POST['publication_year'] ?? $book['publication_year']),
-            'genre' => $_POST['genre'] ?? $book['genre'],
-            'isbn' => $_POST['isbn'] ?? $book['isbn'],
+        // Book data
+        $bookData = [
+            'title' => $_POST['title'],
+            'author' => $_POST['author'],
+            'description' => $_POST['description'] ?? null,
+            'publication_year' => (int)($_POST['publication_year'] ?? 0),
+            'genre' => $_POST['genre'] ?? null,
+            'isbn' => $_POST['isbn'] ?? null,
             'available' => isset($_POST['available']) ? 1 : 0
         ];
 
-        // Handle image upload
-        if (isset($_FILES['cover_image']) && $_FILES['cover_image']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/uploads/covers/';
-            if (!file_exists($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-
-            $filename = uniqid() . '_' . basename($_FILES['cover_image']['name']);
-            $uploadFile = $uploadDir . $filename;
-
-            if (move_uploaded_file($_FILES['cover_image']['tmp_name'], $uploadFile)) {
-                $data['cover_image'] = '/uploads/covers/' . $filename;
-                
-                // Delete old image if it exists
-                if (!empty($book['cover_image'])) {
-                    $oldFile = __DIR__ . '/../../uploads/covers/' . basename($book['cover_image']);
-                    if (file_exists($oldFile)) {
-                        unlink($oldFile);
-                    }
-                }
-            } else {
-                error_log("Failed to move uploaded file: " . $_FILES['cover_image']['error']);
-            }
-        } else {
-            // Keep existing image path as is
-            $data['cover_image'] = $book['cover_image'];
-        }
-
-        // Update the book
-        $success = $this->bookRepository->update($id, $data);
+        // Update the book first
+        $success = $this->bookRepository->update($id, $bookData);
         
-        if ($success && isset($_POST['categories']) && is_array($_POST['categories'])) {
-            $this->bookRepository->updateCategories($id, $_POST['categories']);
+        // Then update the book-category relationship
+        if ($success && isset($_POST['category_id']) && !empty($_POST['category_id'])) {
+            $this->bookRepository->updateCategory($id, $_POST['category_id']);
         }
-
+        
         if ($success) {
             return new Response(
                 ['redirect' => '/admin/books/' . $id . '?updated=true'],

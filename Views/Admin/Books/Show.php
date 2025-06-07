@@ -59,6 +59,15 @@ include __DIR__ . '/../../layout/header.php';
                         <?php endif; ?>
                     </div>
                     
+                    <div class="mb-3">
+                        <strong>Category:</strong> 
+                        <?php if (!empty($book['category_name'])): ?>
+                            <?= htmlspecialchars($book['category_name']) ?>
+                        <?php else: ?>
+                            <em>No category assigned</em>
+                        <?php endif; ?>
+                    </div>
+                    
                     <?php if (!empty($book['description'])): ?>
                     <h5>Description</h5>
                     <p><?php echo nl2br(htmlspecialchars($book['description'])); ?></p>

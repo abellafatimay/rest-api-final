@@ -35,7 +35,9 @@ return [
     [
         'method' => 'GET',
         'path' => '/',
-        'handler' => [new HomeController(), 'index']
+        'handler' => function() use ($catalogController) {
+            return $catalogController->index();
+        }
     ],
     [
         'method' => 'GET',
@@ -323,8 +325,8 @@ return [
     [
         'method' => 'GET',
         'path' => '/admin/book-categories',
-        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($bookController) {
-            return $bookController->manageCategories();
+        'handler' => Middleware::authorize($authController, 'admin', function($userId) use ($categoryController) {
+            return $categoryController->index();
         })
     ],
     [
@@ -340,5 +342,27 @@ return [
         'handler' => Middleware::authorize($authController, 'admin', function($userId, $bookId) use ($bookController) {
             return $bookController->getCategories($bookId);
         })
+    ],
+    // Default homepage - show the catalog
+    [
+        'method' => 'GET',
+        'path' => '/catalog',
+        'handler' => function() use ($catalogController) {
+            return $catalogController->index(); // Use the method that exists in your CatalogController
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/catalog/{id}',
+        'handler' => function($id) use ($catalogController) {
+            return $catalogController->show($id); // Use the method that exists in your CatalogController
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/catalog/category/{id}',
+        'handler' => function($id) use ($catalogController) {
+            return $catalogController->category($id); // Use the method that exists in your CatalogController
+        }
     ],
 ];

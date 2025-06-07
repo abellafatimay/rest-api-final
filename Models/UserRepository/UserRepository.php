@@ -88,6 +88,6 @@ class UserRepository implements DataRepositoryInterface {
      * Count all users in the repository
      */
     public function countAll() {
-        return $this->orm->count('users');
+        return $this->orm->table('users')->count();
     }
 }
