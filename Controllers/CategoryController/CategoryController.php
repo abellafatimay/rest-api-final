@@ -56,25 +56,22 @@ class CategoryController {
         $data = [
             'name' => $_POST['name'] ?? '',
             'description' => $_POST['description'] ?? '',
-            'created_at' => date('Y-m-d H:i:s') // Add this line to include the current timestamp
+            'created_at' => date('Y-m-d H:i:s')
         ];
-        
-        $success = $this->categoryRepository->create($data);
-        
-        if ($success) {
-            return new Response(
-                ['redirect' => '/admin/categories?created=true'],
-                303,
-                ['Location' => '/admin/categories?created=true']
-            );
+
+        try {
+            $this->categoryRepository->create($data);
+            // Success: redirect to category list
+            header('Location: /admin/categories');
+            exit;
+        } catch (\Exception $e) {
+            // Duplicate slug: show alert and redirect
+            echo "<script>
+                alert('Category slug already exists.');
+                window.location.href = '/admin/categories';
+            </script>";
+            exit;
         }
-        
-        $html = View::render('Admin/Categories/Create.php', [
-            'title' => 'Create Category',
-            'category' => $data,
-            'error' => 'Failed to create category.'
-        ]);
-        return new Response($html, 422, ['Content-Type' => 'text/html']);
     }
     
     public function edit($id) {

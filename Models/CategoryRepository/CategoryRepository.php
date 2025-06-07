@@ -8,6 +8,9 @@ class CategoryRepository {
     private $orm;
 
     public function __construct(ORM $orm) {
+        if ($orm === null) {
+            throw new \InvalidArgumentException('ORM instance cannot be null');
+        }
         $this->orm = $orm;
     }
 
@@ -26,15 +29,23 @@ class CategoryRepository {
     }
 
     public function create(array $data) {
-        return $this->orm->table('categories')->insert([
-            'name' => $data['name'],
-            'slug' => $this->createSlug($data['name']),
-            'description' => $data['description'] ?? null
-        ]);
+        // Generate slug if not provided
+        if (empty($data['slug']) && !empty($data['name'])) {
+            $data['slug'] = $this->createSlug($data['name']);
+        }
+        if (empty($data['slug'])) {
+            throw new \Exception('Category slug is required.');
+        }
+        // Check if slug exists
+        $existing = $this->orm->table('categories')->where('slug', '=', $data['slug'])->first();
+        if ($existing) {
+            throw new \Exception('Category slug already exists.');
+        }
+        return $this->orm->table('categories')->insert($data);
     }
 
-    private function createSlug($name, $excludeId = null) {
-        return strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name)));
+    private function createSlug($name) {
+        return strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name), '-'));
     }
 
     public function getTotalCount() {

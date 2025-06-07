@@ -298,9 +298,18 @@ class ORM {
 
     // Delete records
     public function delete() {
-        $this->sql = "DELETE FROM $this->table";
+        $this->sql = "DELETE FROM {$this->table}";
         if (!empty($this->whereConditions)) {
-            $this->sql .= ' WHERE ' . implode(' AND ', $this->whereConditions);
+            $sqlWhereParts = [];
+            $firstCondition = true;
+            foreach ($this->whereConditions as $group) {
+                if (!$firstCondition) {
+                    $sqlWhereParts[] = $group['type'];
+                }
+                $sqlWhereParts[] = "({$group['condition']})";
+                $firstCondition = false;
+            }
+            $this->sql .= ' WHERE ' . implode(' ', $sqlWhereParts);
             $this->params = $this->whereParams;
         }
         return $this->execute();
@@ -448,11 +457,6 @@ class ORM {
         // on the same ORM instance if it needs the data, or it will build a new query.
         // If count is the *only* thing needed, the calling code should expect the ORM state to persist
         // or manage it. For BookRepository, it builds conditions, then calls count(), then separately calls get().
-        // So, the state built for count() should be the same for get().
-        // The reset() is typically done AFTER a get() or first() or execute().
-        // Let's remove the $this->reset() from here to allow chaining if desired,
-        // or to let the final get()/first() call handle the reset.
-        // The BookRepository pattern is: build query, call count; build query (or reuse), call get.
         // So, the state should persist after count for the get. The reset in get/first is key.
 
         return isset($result[0]['count_result']) ? (int) $result[0]['count_result'] : 0;
