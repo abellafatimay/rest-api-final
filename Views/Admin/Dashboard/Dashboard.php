@@ -74,16 +74,6 @@
         </div>
     </div>
     
-    <!-- Recent Activity Section -->
-    <div class="card mt-4">
-        <div class="card-header bg-info text-white">
-            Recent Activity
-        </div>
-        <div class="card-body">
-            <p>This is where you'd display recent system activity logs.</p>
-            <p class="text-muted">Feature can be implemented in future updates.</p>
-        </div>
-    </div>
 </div>
 
 <?php include __DIR__ . '/../../layout/footer.php'; ?>

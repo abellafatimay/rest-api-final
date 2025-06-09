@@ -17,6 +17,7 @@ class ORM {
     private $limitClause = '';
     private $offsetClause = '';
     private $currentWhereGroupType = 'AND'; // To track if we are in an AND or OR chain
+    private $groupByClause = ''; // Add this property with the other private properties
 
     public function __construct(Database $db) {
         $this->connection = $db;
@@ -187,6 +188,11 @@ class ORM {
             $this->params = array_merge($this->params ?? [], $this->whereParams);
         }
         
+        // Add GROUP BY if needed
+        if (!empty($this->groupByClause)) {
+            $this->sql .= $this->groupByClause;
+        }
+        
         // Add ORDER BY if needed
         if (!empty($this->orderByClause)) {
             $this->sql .= $this->orderByClause;
@@ -285,15 +291,43 @@ class ORM {
 
     // Update existing records
     public function update($data) {
-        $setClause = implode(', ', array_map(fn($field) => "$field = ?", array_keys($data)));
-        $this->sql = "UPDATE $this->table SET $setClause";
-        if (!empty($this->whereConditions)) {
-            $this->sql .= ' WHERE ' . implode(' AND ', $this->whereConditions);
-            $this->params = array_merge(array_values($data), $this->whereParams);
-        } else {
-            $this->params = array_values($data);
+        $set = [];
+        $params = [];
+        
+        foreach ($data as $column => $value) {
+            $set[] = "$column = ?";  // Use ? instead of :$column
+            $params[] = $value;      // Add value to simple array, not associative
         }
+        
+        $setClause = implode(', ', $set);
+        
+        // Make sure whereConditions is built correctly and parameters are captured
+        $whereClause = $this->buildWhereClause();
+        
+        $this->sql = "UPDATE {$this->table} SET $setClause" . $whereClause;
+        
+        // Merge the SET parameters with the WHERE parameters
+        $this->params = array_merge($params, $this->whereParams);
+        
         return $this->execute();
+    }
+
+    private function buildWhereClause() {
+        if (empty($this->whereConditions)) {
+            return '';
+        }
+        
+        $sqlWhereParts = [];
+        $firstCondition = true;
+        foreach ($this->whereConditions as $group) {
+            if (!$firstCondition) {
+                $sqlWhereParts[] = $group['type'];
+            }
+            $sqlWhereParts[] = "({$group['condition']})";
+            $firstCondition = false;
+        }
+        
+        return ' WHERE ' . implode(' ', $sqlWhereParts);
     }
 
     // Delete records
@@ -335,6 +369,16 @@ class ORM {
         return $this;
     }
 
+    /**
+     * Add GROUP BY clause to the query
+     * @param string $column Column to group by
+     * @return $this
+     */
+    public function groupBy($column) {
+        $this->groupByClause = " GROUP BY $column";
+        return $this;
+    }
+
     // Execute the query
     private function execute() {
         $stmt = $this->connection->query($this->sql, $this->params);
@@ -347,15 +391,15 @@ class ORM {
      */
     private function reset() {
         $this->sql = '';
-        $this->params = []; // General params used by execute()
+        $this->params = [];
         $this->whereConditions = [];
-        $this->whereParams = []; // Params specific to where clauses
-        $this->joinClauses = [];  
+        $this->whereParams = [];
+        $this->joinClauses = [];
         $this->orderByClause = '';
+        $this->groupByClause = ''; // Add this line
         $this->limitClause = '';
         $this->offsetClause = '';
-        // $this->table = null; // Optionally reset table too, or let table() manage it.
-        $this->currentWhereGroupType = 'AND'; // Reset group type
+        $this->currentWhereGroupType = 'AND';
     }
 
     /**

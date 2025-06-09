@@ -38,18 +38,14 @@ include __DIR__ . '/../../layout/header.php';
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label for="category_id" class="form-label">Book Category</label>
-                            <select class="form-control" id="category_id" name="category_id">
+                            <label for="category" class="form-label">Book Category</label>
+                            <select class="form-control" id="category" name="category">
                                 <option value="">Select a category...</option>
-                                <?php if (!empty($categories)): ?>
-                                    <?php foreach ($categories as $category): ?>
-                                        <option value="<?= $category['id'] ?>">
-                                            <?= htmlspecialchars($category['name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <option value="">No categories available</option>
-                                <?php endif; ?>
+                                <?php foreach ($categories as $category): ?>
+                                    <option value="<?= $category['id'] ?>">
+                                        <?= htmlspecialchars($category['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -79,5 +75,12 @@ include __DIR__ . '/../../layout/header.php';
         </div>
     </div>
 </div>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-danger alert-dismissible fade show">
+        <?= htmlspecialchars($error) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../../layout/footer.php'; ?>

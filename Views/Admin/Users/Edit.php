@@ -3,8 +3,17 @@
 <div class="container mt-4">
     <h1>Edit User</h1>
     
-    <?php if (isset($error)): ?>
-    <div class="alert alert-danger"><?php echo $error; ?></div>
+    <?php if (isset($error) && $error): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?= htmlspecialchars($error) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if (isset($message) && $message): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?= htmlspecialchars($message) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
     <?php endif; ?>
     
     <form action="/admin/users/<?php echo $user['id']; ?>" method="POST">

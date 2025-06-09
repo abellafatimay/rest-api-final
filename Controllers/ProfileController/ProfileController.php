@@ -35,6 +35,13 @@ class ProfileController {
         
         // Merge any additional data (like error/success messages)
         $data = array_merge($data, $additionalData);
+
+        if ($this->isApiRequest()) {
+            // Remove HTML specific data for API response
+            unset($data['title']);
+            unset($data['is_admin']); // Or keep if relevant for API
+            return Response::json($data);
+        }
         
         $html = View::render('Profile/profile.php', $data);
         return new Response($html, 200, ['Content-Type' => 'text/html']);
@@ -48,6 +55,9 @@ class ProfileController {
         
         // Validate input
         if (empty($data['name'])) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => 'Username cannot be empty'], 422);
+            }
             return $this->showProfile($userId, ['error' => 'Username cannot be empty']);
         }
         
@@ -56,12 +66,18 @@ class ProfileController {
         
         // Compare with existing data
         if ($userData['name'] === $data['name']) {
+            if ($this->isApiRequest()) {
+                return Response::json(['message' => 'No changes were made']);
+            }
             return $this->showProfile($userId, ['message' => 'No changes were made']);
         }
         
         // Update user data
         $this->userRepository->update($userId, ['name' => $data['name']]);
         
+        if ($this->isApiRequest()) {
+            return Response::json(['message' => 'Profile updated successfully']);
+        }
         // Show profile with success message
         return $this->showProfile($userId, ['message' => 'Profile updated successfully']);
     }
@@ -73,10 +89,16 @@ class ProfileController {
         
         // Validation
         if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => 'All password fields are required'], 422);
+            }
             return $this->showProfile($userId, ['error' => 'All password fields are required']);
         }
         
         if ($newPassword !== $confirmPassword) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => 'New passwords do not match'], 422);
+            }
             return $this->showProfile($userId, ['error' => 'New passwords do not match']);
         }
         
@@ -84,10 +106,53 @@ class ProfileController {
         $result = $this->authController->changePassword($userId, $currentPassword, $newPassword);
         
         if (!$result['success']) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => $result['message'] ?? 'Current password is incorrect'], 400);
+            }
             return $this->showProfile($userId, ['error' => $result['message'] ?? 'Current password is incorrect']);
         }
         
+        if ($this->isApiRequest()) {
+            return Response::json(['message' => 'Password changed successfully']);
+        }
         // Success
         return $this->showProfile($userId, ['message' => 'Password changed successfully']);
+    }
+
+    /**
+     * API endpoint for user profile data
+     */
+    public function apiProfile($userId) {
+        $userData = $this->userRepository->getById($userId);
+        if (!$userData) {
+            return new Response(['error' => 'User not found'], 404); // Already JSON
+        }
+        // Ensure it's a JSON response
+        return Response::json($userData);
+    }
+
+    /**
+     * API endpoint for user profile data (detailed)
+     */
+    public function apiShowProfile($userId) {
+        $userData = $this->userRepository->getById($userId);
+
+        return new Response([
+            'user_id' => $userId,
+            'user_data' => $userData,
+            'is_admin' => isset($userData['role']) && $userData['role'] === 'admin'
+        ], 200);
+    }
+
+    private function isApiRequest() {
+        // Helper function to check if the request is an API request
+        if ($this->request && method_exists($this->request, 'getUri')) {
+            return strpos($this->request->getUri(), '/api/') !== false;
+        }
+        // Fallback for when $this->request is not set or doesn't have getUri
+        if (isset($_SERVER['REQUEST_URI'])) {
+             return strpos($_SERVER['REQUEST_URI'], '/api/') !== false;
+        }
+        return false;
     }
 }

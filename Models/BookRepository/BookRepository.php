@@ -17,6 +17,22 @@ class BookRepository {
     public function getAll() {
         return $this->orm->table('books')->select()->get();
     }
+
+    /**
+     * Get all books with their category names
+     */
+    public function getAllWithCategoryNames() {
+        return $this->orm->table('books')
+            ->leftJoin('book_categories', 'books.id', '=', 'book_categories.book_id')
+            ->leftJoin('categories', 'book_categories.category_id', '=', 'categories.id')
+            ->select([
+                'books.*',
+                'GROUP_CONCAT(categories.name SEPARATOR ", ") AS category_name'
+            ])
+            ->groupBy('books.id')
+            ->orderBy('books.title', 'ASC')
+            ->get();
+    }
     
     /**
      * Get book by ID
@@ -37,9 +53,52 @@ class BookRepository {
     
     /**
      * Create a new book
+     *
+     * @param array $data Associative array of book data.
+     * @return int|string|false Returns the last inserted ID on success, 
+     *                          'DUPLICATE_TITLE' if title already exists,
+     *                          'DUPLICATE_ISBN' if ISBN already exists,
+     *                          or false on other errors.
      */
     public function create(array $data) {
-        return $this->orm->table('books')->insert($data);
+        // Check for duplicate title if title is provided and not empty
+        if (!empty($data['title'])) {
+            $existingByTitle = $this->findByTitle($data['title']);
+            if ($existingByTitle) {
+                return 'DUPLICATE_TITLE'; // Signal duplicate title
+            }
+        }
+
+        // Check for duplicate ISBN if ISBN is provided and not empty
+        if (!empty($data['isbn'])) {
+            $existingByIsbn = $this->findByIsbn($data['isbn']);
+            if ($existingByIsbn) {
+                return 'DUPLICATE_ISBN'; // Signal duplicate ISBN
+            }
+        }
+
+        // Ensure all expected fields are present, defaulting if necessary
+        $bookData = [
+            'title' => $data['title'] ?? null,
+            'author' => $data['author'] ?? null,
+            'description' => $data['description'] ?? null,
+            'publication_year' => isset($data['publication_year']) ? (int)$data['publication_year'] : null,
+            'isbn' => $data['isbn'] ?? null,
+            'available' => isset($data['available']) ? (int)$data['available'] : 0,
+            'cover_image' => $data['cover_image'] ?? null // This path comes from the BookController
+        ]; // Changed from }; to ];
+
+        // Use the ORM's insert method
+        // The specific method and return value might vary based on your ORM implementation
+        // This assumes $this->orm->insert returns the last inserted ID or throws an exception on failure
+        try {
+            // If your ORM uses table() then insert()
+            $lastInsertId = $this->orm->table('books')->insert($bookData);
+            return $lastInsertId;
+        } catch (\Exception $e) {
+            error_log("Error creating book: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -61,8 +120,14 @@ class BookRepository {
      */
     public function getPaginated(int $limit = 10, int $offset = 0): array {
         return $this->orm->table('books')
-            ->select('books.*') 
-            ->orderBy('books.title', 'ASC') 
+            ->leftJoin('book_categories', 'books.id', '=', 'book_categories.book_id')
+            ->leftJoin('categories', 'book_categories.category_id', '=', 'categories.id')
+            ->select([
+                'books.*',
+                'GROUP_CONCAT(categories.name SEPARATOR ", ") AS category_name'
+            ])
+            ->groupBy('books.id')
+            ->orderBy('books.title', 'ASC')
             ->limit($limit)
             ->offset($offset)
             ->get();
@@ -75,8 +140,30 @@ class BookRepository {
         $this->orm->table('books');
         return $this->orm->count('books.id'); // Or just 'id' if table context is clear
     }
-    
+
     /**
+     * Find a book by its title.
+     *
+     * @param string $title
+     * @return mixed Returns the book record if found, otherwise null or false depending on ORM.
+     */
+    public function findByTitle(string $title)
+    {
+        return $this->orm->table('books')->where('title', '=', $title)->first();
+    }
+
+    /**
+     * Find a book by its ISBN.
+     *
+     * @param string $isbn
+     * @return mixed Returns the book record if found, otherwise null or false depending on ORM.
+     */
+    public function findByIsbn(string $isbn)
+    {
+        return $this->orm->table('books')->where('isbn', '=', $isbn)->first();
+    }
+    
+    /**z
      * Get categories for a book
      */
     public function getCategories($bookId)

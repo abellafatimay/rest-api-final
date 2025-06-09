@@ -11,7 +11,7 @@ use Requests\Request\Request;
 class AuthController
 {
     private UserRepository $userRepository;
-    private string $secretKey = 'your_strong_secret_key'; // Use environment variable in production
+    private string $secretKey = 'your_strong_secret_key';
     private Request $request;
 
     public function __construct(UserRepository $userRepository)
@@ -20,7 +20,6 @@ class AuthController
         $this->request = new Request();
     }
 
-    //Registration
     public function register($data) {
         
         if (empty($data['username']) || empty($data['email']) || empty($data['password'])) {
@@ -31,7 +30,6 @@ class AuthController
             return new Response(['error' => 'Email already exists'], 409);
         }
 
-        // Prepare user data with correct field names
         $userData = [
             'name' => $data['username'],
             'email' => $data['email'],
@@ -47,17 +45,15 @@ class AuthController
         }
 
         //  JWT token
-        try {
+        try {            $user = $this->userRepository->getById($userId);
             $payload = [
-                'iss' => 'your-domain.com',
-                'sub' => $userId,
+                'iss' => 'your-app',
                 'iat' => time(),
-                'exp' => time() + 3600
+                'exp' => time() + 3600,
+                'user_id' => $userId,
+                'role' => $user['role'] ?? 'user'
             ];
             $token = JWT::encode($payload, $this->secretKey, 'HS256');
-            
-            // Debug logging
-            error_log("Token generated for user $userId: " . substr($token, 0, 20) . "...");
             
             $updated = $this->userRepository->updateToken($userId, $token);
             
@@ -67,7 +63,6 @@ class AuthController
                 error_log("Token saved successfully for user $userId");
             } 
             
-            // Fixed Response constructor order to maGeneratetch the application pattern
             return new Response([
                 'message' => 'User registered successfully',
                 'token' => $token,
@@ -79,11 +74,10 @@ class AuthController
         }
     }
      public function processRegistration() {
-        // Get content type to determine request format
+        
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         $isApiRequest = strpos($contentType, 'application/json') !== false;
         
-        // Extract data based on request format
         if ($isApiRequest) {
             $data = json_decode(file_get_contents('php://input'), true);
         } else {
@@ -95,7 +89,6 @@ class AuthController
             ];
         }
         
-        // Validate passwords match
         if ($data['password'] !== ($data['confirm_password'] ?? '')) {
             if ($isApiRequest) {
                 return new Response(['error' => 'Passwords do not match'], 400);
@@ -104,10 +97,8 @@ class AuthController
             }
         }
         
-        // Call the actual register method
         $response = $this->register($data);
         
-        // Handle response based on request format
         if (!$isApiRequest) {
             if ($response->getStatusCode() !== 201) {
                 $responseData = $response->getBody();
@@ -115,7 +106,6 @@ class AuthController
                 return $this->renderRegistrationForm($error);
             }
             
-            // Set up redirect with header Location
             return new Response(
                 ['redirect' => '/login?registered=true'], 
                 303, 
@@ -123,7 +113,6 @@ class AuthController
             );
         }
         
-        // For API requests, return JSON response with token
         return $response;
     }
     private function renderRegistrationForm($error = null, $statusCode = 200) {
@@ -139,81 +128,67 @@ class AuthController
         $html = \Views\Core\View::render('Auth/register.php', $data);
         return new Response($html, $statusCode, ['Content-Type' => 'text/html']);
     }
-    //Login
-    public function login($data) {
-        if (empty($data['email']) || empty($data['password'])) {
-            return new Response(['error' => 'Email and password are required'], 400);
-        }
 
-        $user = $this->userRepository->getByEmail($data['email']);
-        error_log("Login attempt for " . $data['email'] . ": " . ($user ? "User found" : "User not found"));
-        
-        if ($user && password_verify($data['password'], $user['password'])) {
-            $payload = [
-                'iss' => 'your-domain.com',
-                'user_id' => $user['id'],  // Always use user_id, not sub
-                'role' => $user['role'],
-                'iat' => time(),
-                'exp' => time() + 3600
-            ];
-            $token = JWT::encode($payload, $this->secretKey, 'HS256');
-
-            // Save the token in the database
-            $this->userRepository->updateToken($user['id'], $token);
-
-            // Fixed Response constructor order
-            return new Response(['token' => $token, 'user_id' => $user['id']], 200);
-        } else {
-            error_log("Password verification failed for " . $data['email']);
-        }
-
-        return new Response(['error' => 'Invalid credentials'], 401);
-    }
     public function processLogin()
     {
         error_log("Process login called with method: " . $this->request->getMethod());
         
-        // Check if request method is POST
         if (!$this->request->isMethod('POST')) {
             error_log("Invalid method for login: " . $this->request->getMethod());
             return new Response(['error' => 'Method not allowed'], 405);
         }
 
-        // Get login data from request
-        $data = $this->request->getBody();
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $isApiRequest = strpos($contentType, 'application/json') !== false;
+
+        if ($isApiRequest) {
+            $data = json_decode(file_get_contents('php://input'), true);
+        } else {
+            $data = [
+                'email' => $_POST['email'] ?? '',
+                'password' => $_POST['password'] ?? ''
+            ];
+        }
+
         error_log("Login data received: " . print_r($data, true));
 
         if (empty($data['email']) || empty($data['password'])) {
             error_log("Missing email or password");
-            return new Response(
-                \Views\Core\View::render('Auth/login.php', [
-                    'title' => 'Login', 
-                    'heading' => 'User Login',
-                    'error' => 'Email and password are required'
-                ]), 
-                200, 
-                ['Content-Type' => 'text/html']
-            );
+            if ($isApiRequest) {
+                return new Response(['error' => 'Email and password are required'], 400);
+            } else {
+                return new Response(
+                    \Views\Core\View::render('Auth/login.php', [
+                        'title' => 'Login', 
+                        'heading' => 'User Login',
+                        'error' => 'Email and password are required'
+                    ]), 
+                    200, 
+                    ['Content-Type' => 'text/html']
+                );
+            }
         }
 
-        // Try to login
         $user = $this->userRepository->getByEmail($data['email']);
         error_log("User lookup result: " . ($user ? "Found with ID: {$user['id']}" : "User not found"));
 
         if (!$user || !password_verify($data['password'], $user['password'])) {
             error_log("Invalid credentials for email: " . $data['email']);
-            return new Response(
-                \Views\Core\View::render('Auth/login.php', [
-                    'title' => 'Login', 
-                    'heading' => 'User Login',
-                    'error' => 'Invalid credentials'
-                ]), 
-                200, 
-                ['Content-Type' => 'text/html']
-            );
+            if ($isApiRequest) {
+                return new Response(['error' => 'Invalid credentials'], 401);
+            } else {
+                return new Response(
+                    \Views\Core\View::render('Auth/login.php', [
+                        'title' => 'Login', 
+                        'heading' => 'User Login',
+                        'error' => 'Invalid credentials'
+                    ]), 
+                    200, 
+                    ['Content-Type' => 'text/html']
+                );
+            }
         }
 
-        // Success - generate token
         $payload = [
             'iss' => 'your-app',
             'iat' => time(),
@@ -223,36 +198,42 @@ class AuthController
         ];
 
         $jwt = JWT::encode($payload, $this->secretKey, 'HS256');
-        
-        // Start session and store token
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        $_SESSION['user_token'] = $jwt;
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_role'] = $user['role'];
-        
-        error_log("Login successful. User ID: {$user['id']}, Role: {$user['role']}");
-        error_log("Token stored in session: " . $jwt);
-        error_log("Session data: " . print_r($_SESSION, true));
 
-        // Always redirect to user dashboard first, regardless of role
-        return new Response(
-            ['message' => 'Login successful'],
-            303,
-            ['Location' => '/dashboard']
-        );
+        if ($isApiRequest) {
+            return new Response([
+                'message' => 'Login successful',
+                'token' => $jwt,
+                'user_id' => $user['id'],
+                'role' => $user['role']
+            ], 200);
+        } else {
+            
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+
+            $_SESSION['user_token'] = $jwt;
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_role'] = $user['role'];
+
+            error_log("Login successful. User ID: {$user['id']}, Role: {$user['role']}");
+            error_log("Token stored in session: " . $jwt);
+            error_log("Session data: " . print_r($_SESSION, true));
+
+            return new Response(
+                ['message' => 'Login successful'],
+                303,
+                ['Location' => '/dashboard']
+            );
+        }
     }
 
-    //Core authentication method
-    public function authenticate($providedToken = null) // Allow token to be passed in, e.g., from header
+    public function authenticate($providedToken = null)
 {
     error_log("Authentication requested. Provided token: " . ($providedToken ? "yes" : "no"));
     
     $token = $providedToken;
     
-    // If no token provided, check session
     if ($token === null) {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
@@ -291,24 +272,23 @@ class AuthController
     public function getUserById($userId) {
         return $this->userRepository->getById($userId);}
     
-    //Change password
     public function changePassword($userId, $currentPassword, $newPassword) {
-        // Get the user from the database
+        
         $user = $this->userRepository->getById($userId);
         
         if (!$user) {
             return ['success' => false, 'message' => 'User not found'];
         }
         
-        // Verify the current password
+    
         if (!password_verify($currentPassword, $user['password'])) {
             return ['success' => false, 'message' => 'Current password is incorrect'];
         }
         
-        // Hash the new password
+        
         $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
         
-        // Update the password in the database
+        
         $updated = $this->userRepository->update($userId, ['password' => $hashedPassword]);
         
         if (!$updated) {
@@ -320,7 +300,7 @@ class AuthController
     /**
      * Process user logout and destroy session
      * 
-     * @return Response Redirect response to login page
+     * @return Response 
      */
     public function logout()
     {
@@ -329,10 +309,8 @@ class AuthController
             session_start();
         }
         
-        // Clear session data
         $_SESSION = [];
         
-        // Destroy session cookie
         if (ini_get("session.use_cookies")) {
             $params = session_get_cookie_params();
             setcookie(session_name(), '', time() - 42000,
@@ -341,7 +319,6 @@ class AuthController
             );
         }
         
-        // Destroy the session
         session_destroy();
         
         error_log("Logout completed, redirecting to login");
@@ -350,5 +327,37 @@ class AuthController
             303,
             ['Location' => '/login']
         );
+    }
+    public function login() {
+        $email = $this->request->post('email');
+        $password = $this->request->post('password');
+
+        if (empty($email) || empty($password)) {
+            return Response::view('Auth/Login', [
+                'error' => 'Email and password are required'
+            ], 422);
+        }
+
+        $user = $this->userRepository->getByEmail($email);
+        error_log("Login attempt for " . $email . ": " . ($user ? "User found" : "User not found"));
+        
+        if ($user && password_verify($password, $user['password'])) {
+            $payload = [
+                'iss' => 'your-domain.com',
+                'user_id' => $user['id'],
+                'role' => $user['role'],
+                'iat' => time(),
+                'exp' => time() + 3600
+            ];
+            $token = JWT::encode($payload, $this->secretKey, 'HS256');
+
+            $this->userRepository->updateToken($user['id'], $token);
+
+            return new Response(['token' => $token, 'user_id' => $user['id']], 200);
+        } else {
+            error_log("Password verification failed for " . $email);
+        }
+
+        return new Response(['error' => 'Invalid credentials'], 401);
     }
 }

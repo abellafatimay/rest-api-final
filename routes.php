@@ -5,21 +5,13 @@ use Responses\Response;
 use Views\Core\View;
 use Controllers\HomeController\HomeController;
 
-// Remove any controller initialization from here - they should come from index.php
-
 return [
-    // Public Routes
+    
     [
         'method' => 'POST',
         'path' => '/register',
         'handler' => function () use ($authController) {
             $response = $authController->processRegistration();
-            
-            // This manual redirect handling might be problematic
-            if (isset($response->getHeaders()['Location'])) {
-                header('Location: ' . $response->getHeaders()['Location']);
-                exit;
-            }
             
             return $response;
         }
@@ -29,7 +21,7 @@ return [
         'path' => '/login',
         'handler' => function () use ($authController) {
             $response = $authController->processLogin();
-            return $response; // Let index.php handle the response
+            return $response; 
         }
     ],
     [
@@ -58,50 +50,47 @@ return [
         }
     ],
 
-    // Protected Routes
+    // Protected Routes (any logged-in user)
     [
         'method' => 'GET',
         'path' => '/users',
         'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
-            return $controller->getAllUsers(); // UserController already returns Response object
+            return $controller->getAllUsers();
         })
     ],
     [
         'method' => 'GET',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            return $controller->getUserById($id); // UserController already returns Response object
+            return $controller->getUserById($id);
         })
     ],
     [
         'method' => 'POST',
         'path' => '/users',
         'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
-            return $controller->createUser(); // UserController already returns Response object
+            return $controller->createUser();
         })
     ],
     [
         'method' => 'PUT',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            return $controller->updateUser($id); // UserController already returns Response object
+            return $controller->updateUser($id);
         })
     ],
     [
         'method' => 'DELETE',
         'path' => '/users/{id}',
         'handler' => Middleware::authenticate($authController, function ($userId, $id) use ($controller) {
-            return $controller->deleteUser($id); // UserController already returns Response object
+            return $controller->deleteUser($id);
         })
     ],
-    // Protected Routes - Views that should only be accessible to logged-in users
     [
         'method' => 'GET',
-        'path' => '/dashboard', // Example protected view
+        'path' => '/dashboard',
         'handler' => Middleware::authenticate($authController, function ($userId) use ($controller) {
-            // Get user data from repository or controller
             $userData = $controller->getUserById($userId)->getBody();
-            
             $data = [
                 'title' => 'Dashboard',
                 'user_id' => $userId,
@@ -119,22 +108,35 @@ return [
             return $profileController->showProfile($userId);
         })
     ],
+    [
+        'method' => 'POST',
+        'path' => '/profile/update',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->updateProfile($userId);
+        })
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/profile/change-password',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->changePassword($userId);
+        })
+    ],
     // Admin-only view example:
     [
         'method' => 'GET',
         'path' => '/admin',
         'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($adminController) {
-            return $adminController->index(); // This remains for the main admin dashboard
+            return $adminController->index();
         })
     ],
     [
         'method' => 'GET',
         'path' => '/admin/users',
-        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($userAdminController) { // <<< CHANGED to $userAdminController
-            return $userAdminController->index(); // <<< Calls the method in UserAdminController
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($userAdminController) {
+            return $userAdminController->index();
         })
     ],
-    // Admin user management routes
     [
         'method' => 'GET',
         'path' => '/admin/users/create',
@@ -171,7 +173,7 @@ return [
         })
     ],
     [
-        'method' => 'POST', // Using POST with a _method field for DELETE since HTML forms don't support DELETE natively
+        'method' => 'POST',
         'path' => '/admin/users/{id}/delete',
         'handler' => Middleware::authorize($authController, 'admin', function ($userId, $id) use ($userAdminController) {
             return $userAdminController->delete($id);
@@ -183,31 +185,9 @@ return [
         'path' => '/logout',
         'handler' => function () use ($authController) {
             $response = $authController->logout();
-            
-            // This manual redirect handling might be problematic
-            if (isset($response->getHeaders()['Location'])) {
-                header('Location: ' . $response->getHeaders()['Location']);
-                exit;
-            }
-            
+            // Let index.php handle the response, including redirects
             return $response;
         }
-    ],
-    // Process profile update
-    [
-        'method' => 'POST',
-        'path' => '/profile/update',
-        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
-            return $profileController->updateProfile($userId);
-        })
-    ],
-    // Process password change
-    [
-        'method' => 'POST',
-        'path' => '/profile/change-password',
-        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
-            return $profileController->changePassword($userId);
-        })
     ],
     // Book routes
     [
@@ -231,36 +211,32 @@ return [
             return $bookController->store();
         })
     ],
-    // You'll also need routes for edit, show, etc.
     [
         'method' => 'GET',
         'path' => '/admin/books/{id}',
         'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
-            return $bookController->show($id); // Fixed - direct parameter
+            return $bookController->show($id);
         })
     ],
     [
         'method' => 'GET',
         'path' => '/admin/books/{id}/edit',
         'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
-            // Assuming BookController will have an edit method
-            return $bookController->edit($id); 
+            return $bookController->edit($id);
         })
     ],
     [
-        'method' => 'POST', // Or PUT, but POST is consistent with user updates
+        'method' => 'POST',
         'path' => '/admin/books/{id}',
         'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
-            // Assuming BookController will have an update method
-            return $bookController->update($id); 
+            return $bookController->update($id);
         })
     ],
     [
-        'method' => 'POST', // Consistent with user delete route (using POST for form submission)
+        'method' => 'POST',
         'path' => '/admin/books/{id}/delete',
         'handler' => Middleware::authorize($authController, 'admin', function($userId, $id) use ($bookController) {
-            // Assuming BookController will have a delete method
-            return $bookController->delete($id); 
+            return $bookController->delete($id);
         })
     ],
     // Category routes (now $categoryController will be defined)
@@ -348,21 +324,155 @@ return [
         'method' => 'GET',
         'path' => '/catalog',
         'handler' => function() use ($catalogController) {
-            return $catalogController->index(); // Use the method that exists in your CatalogController
+            return $catalogController->index();
         }
     ],
     [
         'method' => 'GET',
         'path' => '/catalog/{id}',
         'handler' => function($id) use ($catalogController) {
-            return $catalogController->show($id); // Use the method that exists in your CatalogController
+            return $catalogController->show($id);
         }
     ],
     [
         'method' => 'GET',
         'path' => '/catalog/category/{id}',
         'handler' => function($id) use ($catalogController) {
-            return $catalogController->category($id); // Use the method that exists in your CatalogController
+            return $catalogController->category($id);
         }
+    ],
+    // Example for API route (JWT-based)
+    [
+        'method' => 'GET',
+        'path' => '/api/books',
+        'handler' => function () use ($bookController) {
+            return $bookController->index();
+        }
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/api/books/create',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($bookController) {
+            return $bookController->create();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/catalog',
+        'handler' => function () use ($catalogController) {
+            return $catalogController->index();
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/categories',
+        'handler' => function () use ($categoryController) {
+            return $categoryController->index();
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/profile',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->showProfile($userId);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/users',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($controller) {
+            return $controller->getAllUsers();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/user/{id}',
+        'handler' => function ($id) use ($controller) {
+            return $controller->apiGetUserById($id);
+        }
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/api/user/create',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($controller) {
+            return $controller->createUser();
+        })
+    ],
+    [
+        'method' => 'PUT',
+        'path' => '/api/user/update/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function ($id) use ($controller) {
+            return $controller->updateUser($id);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/admin/dashboard',
+        'handler' => Middleware::authorize($authController, 'admin', function ($userId) use ($adminController) {
+            return $adminController->dashboard();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/books',
+        'handler' => function () use ($bookController) {
+            return $bookController->index();
+        }
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/api/books/create',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($bookController) {
+            return $bookController->create();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/catalog',
+        'handler' => function () use ($catalogController) {
+            return $catalogController->index();
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/categories',
+        'handler' => function () use ($categoryController) {
+            return $categoryController->index();
+        }
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/profile',
+        'handler' => Middleware::authenticate($authController, function ($userId) use ($profileController) {
+            return $profileController->showProfile($userId);
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/users',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($controller) {
+            return $controller->getAllUsers();
+        })
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/user/{id}',
+        'handler' => function ($id) use ($controller) {
+            return $controller->apiGetUserById($id);
+        }
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/api/user/create',
+        'handler' => Middleware::authorize($authController, 'admin', function () use ($controller) {
+            return $controller->createUser();
+        })
+    ],
+    [
+        'method' => 'PUT',
+        'path' => '/api/user/update/{id}',
+        'handler' => Middleware::authorize($authController, 'admin', function ($id) use ($controller) {
+            return $controller->updateUser($id);
+        })
     ],
 ];

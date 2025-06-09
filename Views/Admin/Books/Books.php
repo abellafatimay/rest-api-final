@@ -13,18 +13,6 @@ include __DIR__ . '/../../layout/header.php';
         <a href="/admin/books/create" class="btn btn-success">Add New Book</a>
     </div>
     
-    <?php if (isset($_GET['created'])): ?>
-    <div class="alert alert-success">Book created successfully.</div>
-    <?php endif; ?>
-    
-    <?php if (isset($_GET['updated'])): ?>
-    <div class="alert alert-success">Book updated successfully.</div>
-    <?php endif; ?>
-    
-    <?php if (isset($_GET['deleted'])): ?>
-    <div class="alert alert-success">Book deleted successfully.</div>
-    <?php endif; ?>
-    
     <?php if (empty($books)): ?>
         <div class="alert alert-info">No books found. Add your first book to get started.</div>
     <?php else: ?>
@@ -35,7 +23,7 @@ include __DIR__ . '/../../layout/header.php';
                         <th>ID</th>
                         <th>Title</th>
                         <th>Author</th>
-                        <th>Genre</th>
+                        <th>Category</th>
                         <th>Publication Year</th>
                         <th>Available</th>
                         <th>Actions</th>
@@ -47,7 +35,7 @@ include __DIR__ . '/../../layout/header.php';
                         <td><?php echo htmlspecialchars($book['id']); ?></td>
                         <td><?php echo htmlspecialchars($book['title']); ?></td>
                         <td><?php echo htmlspecialchars($book['author']); ?></td>
-                        <td><?php echo htmlspecialchars($book['genre'] ?? 'N/A'); ?></td>
+                        <td><?php echo htmlspecialchars($book['category_name'] ?? 'N/A'); ?></td>
                         <td><?php echo htmlspecialchars($book['publication_year'] ?? 'N/A'); ?></td>
                         <td>
                             <?php if ($book['available']): ?>
@@ -71,26 +59,8 @@ include __DIR__ . '/../../layout/header.php';
             </table>
         </div>
         
-        <!-- Pagination controls -->
-        <?php if (isset($pagination) && $pagination['totalPages'] > 1): ?>
-        <nav aria-label="Book pagination">
-            <ul class="pagination justify-content-center">
-                <li class="page-item <?php echo $pagination['current'] <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] - 1; ?>">Previous</a>
-                </li>
-                
-                <?php for ($i = 1; $i <= $pagination['totalPages']; $i++): ?>
-                <li class="page-item <?php echo $i === $pagination['current'] ? 'active' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-                </li>
-                <?php endfor; ?>
-                
-                <li class="page-item <?php echo $pagination['current'] >= $pagination['totalPages'] ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] + 1; ?>">Next</a>
-                </li>
-            </ul>
-        </nav>
-        <?php endif; ?>
+        
+        <?php include __DIR__ . '/../../partials/pagination.php'; ?>
     <?php endif; ?>
 </div>
 

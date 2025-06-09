@@ -54,9 +54,17 @@ class CategoryRepository {
     }
 
     public function update($id, array $data) {
+        // Ensure data is a simple key-value array, not nested arrays
+        $updateData = [
+            'name' => $data['name'] ?? null,
+            'slug' => $data['slug'] ?? null,
+            'description' => $data['description'] ?? null,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
         return $this->orm->table('categories')
             ->where('id', '=', $id)
-            ->update($data);
+            ->update($updateData);
     }
 
     public function delete($id) {
@@ -72,5 +80,17 @@ class CategoryRepository {
             ->limit($limit)
             ->offset($offset)
             ->get();
+    }
+
+    /**
+     * Find a category by name
+     * 
+     * @param string $name The name to search for
+     * @return array|null The category data if found, null otherwise
+     */
+    public function findByName($name) {
+        return $this->orm->table('categories')
+            ->where('name', '=', $name)
+            ->first();
     }
 }

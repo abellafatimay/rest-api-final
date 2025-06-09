@@ -17,30 +17,33 @@ class UserController {
 
     public function getAllUsers() {
         // Fixed parameter order - body first, then status code
-        return new Response($this->userRepository->getAll(), 200);
+        $users = $this->userRepository->getAll();
+        return Response::json($users); // Always return JSON for this API-like method
     }
 
     public function getUserById($id) {
         $user = $this->userRepository->getById($id);
         if (empty($user)) {
             // Fixed parameter order
-            return new Response(['error' => 'User not found'], 404);
+            return Response::json(['error' => 'User not found'], 404); // Always JSON
         }
         
         // Fixed parameter order and added safe array access
-        if (isset($user[0])) {
-            return new Response($user[0], 200);
+        // The original logic for $user[0] might be specific, review if it's always an array
+        if (is_array($user) && isset($user[0]) && count($user) === 1 && is_array($user[0])) {
+             return Response::json($user[0]); // Always JSON
         } else {
             // If $user isn't an array with index 0, return the entire user object
-            return new Response($user, 200);
+            return Response::json($user); // Always JSON
         }
     }
 
     public function createUser() {
         $data = $this->request->getBody();
-        $this->userRepository->create($data);
+        // Add validation for $data here before creating user
+        $createdUser = $this->userRepository->create($data); // Assuming create returns the created user or its ID
         // Fixed parameter order
-        return new Response(['message' => 'User created'], 201);
+        return Response::json(['message' => 'User created', 'user' => $createdUser], 201); // Always JSON
     }
 
     public function updateUser($id, $data = null) {
@@ -52,7 +55,7 @@ class UserController {
         // Get current user data
         $currentUser = $this->userRepository->getById($id);
         if (!$currentUser) {
-            return new Response(['error' => 'User not found'], 404);
+            return Response::json(['error' => 'User not found'], 404); // Always JSON
         }
         
         // Update only the provided fields
@@ -70,13 +73,69 @@ class UserController {
             $this->userRepository->update($id, $updateData);
         }
         
-        return new Response(['message' => 'User updated'], 200);
+        return Response::json(['message' => 'User updated'], 200); // Always JSON
     }
 
     public function deleteUser($id) {
+        $user = $this->userRepository->getById($id);
+        if (!$user) {
+            return Response::json(['error' => 'User not found'], 404);
+        }
         $this->userRepository->delete($id);
         // Fixed parameter order
-        return new Response('', 204);
+        return Response::json(null, 204); // Always JSON, 204 means no content
     }
 
+    /**
+     * API endpoint for user dashboard data
+     */
+    public function apiDashboard($userId) {
+        $user = $this->userRepository->getById($userId);
+        if (!$user) {
+            return Response::json(['error' => 'User not found'], 404); // Use Response::json
+        }
+        // Example: add more dashboard data as needed
+        $dashboard = [
+            'user_id' => $userId,
+            'user_data' => $user,
+            'recent_activity' => [
+                'last_login' => date('Y-m-d H:i:s'),
+                // Add more activity if available
+            ],
+            'quick_actions' => [
+                ['label' => 'Edit Profile', 'url' => '/profile'],
+                ['label' => 'Change Password', 'url' => '/profile']
+            ]
+        ];
+        return Response::json($dashboard); // Use Response::json
+    }
+
+    public function apiGetUserById($id) {
+        $user = $this->userRepository->getById($id);
+        if (empty($user)) {
+            return Response::json(['error' => 'User not found'], 404); // Use Response::json
+        }
+
+        return Response::json($user); // Use Response::json
+    }
+
+    public function apiCreateUser() {
+        $data = $this->request->getBody();
+        // Add validation for $data here
+        $createdUser = $this->userRepository->create($data); // Assuming create returns the created user or ID
+
+        return Response::json(['message' => 'User created', 'user' => $createdUser], 201); // Use Response::json
+    }
+
+    public function apiUpdateUser($id) {
+        $data = $this->request->getBody();
+        // Add validation for $data here
+        $this->userRepository->update($id, $data);
+
+        return Response::json(['message' => 'User updated'], 200); // Use Response::json
+    }
+
+    // It's good practice to have a consistent way to check for API requests if some methods serve both.
+    // However, for UserController, most methods seem API-oriented already.
+    // If any method needs to serve both HTML and JSON, add isApiRequest() similar to other controllers.
 }

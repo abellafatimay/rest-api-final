@@ -15,10 +15,9 @@ include __DIR__ . '/../../layout/header.php';
         </div>
     </div>
 
-    <?php if (isset($_GET['updated']) && $_GET['updated'] === 'true'): ?>
-        <div class="alert alert-success">Book updated successfully.</div>
-    <?php elseif (isset($_GET['nochanges']) && $_GET['nochanges'] === 'true'): ?>
-        <div class="alert alert-info">No changes were made to the book.</div>
+    <?php if (!empty($_SESSION['flash']['success'])): ?>
+        <div class="alert alert-success"><?= htmlspecialchars($_SESSION['flash']['success']) ?></div>
+        <?php unset($_SESSION['flash']['success']); ?>
     <?php endif; ?>
 
     <div class="card mb-4">
@@ -44,9 +43,7 @@ include __DIR__ . '/../../layout/header.php';
                         <span class="badge <?php echo $book['available'] ? 'bg-success' : 'bg-danger'; ?>">
                             <?php echo $book['available'] ? 'Available' : 'Not Available'; ?>
                         </span>
-                        <?php if (!empty($book['genre'])): ?>
-                        <span class="badge bg-info"><?php echo htmlspecialchars($book['genre']); ?></span>
-                        <?php endif; ?>
+
                     </div>
                     
                     <div class="mb-3">

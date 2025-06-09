@@ -41,6 +41,21 @@ class CatalogController {
         // Get categories for filter dropdown
         $allCategories = $this->categoryRepository->getAll(); 
         
+        if ($this->isApiRequest()) {
+            return Response::json([
+                'title' => 'Book Catalog',
+                'books' => $books,
+                'categories' => $allCategories,
+                'currentCategory' => $categoryId,
+                'search' => $searchQuery,
+                'pagination' => [
+                    'current' => $page,
+                    'perPage' => $perPage,
+                    'total' => $totalBooks,
+                    'totalPages' => $totalPages
+                ]
+            ]);
+        }
         $html = View::render('Catalog/Browse.php', [
             'title' => 'Book Catalog',
             'books' => $books,
@@ -63,12 +78,22 @@ class CatalogController {
         $book = $this->bookRepository->getById($id);
         
         if (!$book) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => 'Book not found'], 404);
+            }
             return new Response('Book not found', 404);
         }
         
         // Get book categories
         $bookCategories = $this->bookRepository->getCategories($id);
         
+        if ($this->isApiRequest()) {
+            return Response::json([
+                'title' => $book['title'],
+                'book' => $book,
+                'categories' => $bookCategories
+            ]);
+        }
         $html = View::render('Catalog/Detail.php', [
             'title' => $book['title'],
             'book' => $book,
@@ -91,6 +116,9 @@ class CatalogController {
         $category = $this->categoryRepository->getById($id);
         
         if (!$category) {
+            if ($this->isApiRequest()) {
+                return Response::json(['error' => 'Category not found'], 404);
+            }
             return new Response('Category not found', 404);
         }
         
@@ -99,6 +127,19 @@ class CatalogController {
         $totalBooks = $this->bookRepository->getCategoryBookCount($id);
         $totalPages = ceil($totalBooks / $perPage);
         
+        if ($this->isApiRequest()) {
+            return Response::json([
+                'title' => 'Books in ' . $category['name'],
+                'category' => $category,
+                'books' => $books,
+                'pagination' => [
+                    'current' => $page,
+                    'perPage' => $perPage,
+                    'total' => $totalBooks,
+                    'totalPages' => $totalPages
+                ]
+            ]);
+        }
         $html = View::render('Catalog/CategoryView.php', [
             'title' => 'Books in ' . $category['name'],
             'category' => $category,
@@ -112,5 +153,39 @@ class CatalogController {
         ]);
         
         return new Response($html, 200, ['Content-Type' => 'text/html']);
+    }
+    
+    // API method to get catalog data as JSON
+    public function apiIndex() {
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $perPage = 12;
+
+        $searchQuery = $_GET['search'] ?? '';
+        $categoryId = isset($_GET['category']) && !empty($_GET['category']) ? (int)$_GET['category'] : null;
+
+        $offset = ($page - 1) * $perPage;
+
+        $books = $this->bookRepository->search($searchQuery, $categoryId, $perPage, $offset);
+        $totalBooks = $this->bookRepository->getSearchCount($searchQuery, $categoryId);
+
+        return new Response([
+            'books' => $books,
+            'pagination' => [
+                'current' => $page,
+                'perPage' => $perPage,
+                'total' => $totalBooks,
+                'totalPages' => ceil($totalBooks / $perPage)
+            ]
+        ], 200);
+    }
+
+    private function isApiRequest() {
+        // Helper function to check if the request is an API request
+        // This can be based on a header, a URL prefix, or other criteria
+        // Assuming request object has getUri method
+        if (isset($_SERVER['REQUEST_URI'])) {
+            return strpos($_SERVER['REQUEST_URI'], '/api/') !== false;
+        }
+        return false;
     }
 }

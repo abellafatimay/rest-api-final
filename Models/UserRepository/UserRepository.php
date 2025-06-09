@@ -57,21 +57,16 @@ class UserRepository implements DataRepositoryInterface {
     }
 
     /**
-     * Get paginated list of users
+     * Get paginated list of users using SQL LIMIT/OFFSET
      */
     public function getPaginated(int $limit = 10, int $offset = 0): array
     {
-        // Get all users and manually implement pagination
-        // This is less efficient but will work with your ORM's public API
-        $allUsers = $this->orm->table('users')->select()->get();
-        
-        // Sort by ID descending (newest first)
-        usort($allUsers, function($a, $b) {
-            return $b['id'] <=> $a['id']; 
-        });
-        
-        // Apply pagination
-        return array_slice($allUsers, $offset, $limit);
+        // Use ORM's limit/offset for efficient SQL pagination
+        return $this->orm->table('users')
+            ->orderBy('id', 'DESC')
+            ->limit($limit)
+            ->offset($offset)
+            ->get();
     }
 
     /**
@@ -79,9 +74,8 @@ class UserRepository implements DataRepositoryInterface {
      */
     public function getTotalCount(): int
     {
-        // Count all users
-        $allUsers = $this->orm->table('users')->select()->get();
-        return count($allUsers);
+        // Use ORM's count method for efficiency
+        return $this->orm->table('users')->count('id');
     }
 
     /**

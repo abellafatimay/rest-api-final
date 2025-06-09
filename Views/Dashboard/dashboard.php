@@ -132,8 +132,7 @@
                 <!-- This would typically be populated with data from your database -->
                 <ul>
                     <li>You logged in on <?php echo date('Y-m-d H:i:s'); ?></li>
-                    <li>Example activity item</li>
-                    <li>Example activity item</li>
+
                 </ul>
             </div>
             
@@ -142,11 +141,12 @@
                 <p>Common actions you can take:</p>
                 <ul>
                     <li><a href="/profile">Edit Profile</a></li>
-                    <li><a href="/change-password">Change Password</a></li>
-                    <li><a href="/notifications">Notification Settings</a></li>
+                    <li><a href="/profile">Change Password</a></li>
+                    
                 </ul>
             </div>
         </div>
     </div>
+    <?php include __DIR__ . '/../layout/footer.php'; ?>
 </body>
 </html>

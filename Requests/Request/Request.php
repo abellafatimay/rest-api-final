@@ -22,20 +22,23 @@ class Request implements RequestInterface {
         return rtrim($path, '/');
     }
 
+    public function getUri(): string {
+        return $_SERVER['REQUEST_URI'];
+    }
+
     public function getBody(): array {
         if ($this->getMethod() === 'GET') {
             return $_GET;
         }
         if ($this->getMethod() === 'POST') {
-            // Handle JSON body for POST
+            
             if (isset($_SERVER['CONTENT_TYPE']) && stripos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
                 $jsonBody = file_get_contents('php://input');
                 $data = json_decode($jsonBody, true);
                 return is_array($data) ? $data : [];
             }
-            return $_POST; // Fallback to form data
+            return $_POST; 
         }
-        // For PUT, DELETE, etc., handle JSON body
         if (isset($_SERVER['CONTENT_TYPE']) && stripos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
             $jsonBody = file_get_contents('php://input');
             $data = json_decode($jsonBody, true);
@@ -45,7 +48,7 @@ class Request implements RequestInterface {
     }
 
     public function getHeaders(): array {
-        return getallheaders(); // Requires Apache or specific server config
+        return getallheaders();
     }
 
     public function getHeader(string $name): ?string {
@@ -80,5 +83,36 @@ class Request implements RequestInterface {
         // For other methods, check the parsed request body
         $body = $this->getBody();
         return $body[$name] ?? $default;
+    }
+
+    public function get(string $key, $default = null) {
+        return $_GET[$key] ?? $default;
+    }
+
+    /**
+     * Get a POST parameter from the request
+     *
+     * @param string $name Parameter name
+     * @param mixed $default Default value if parameter doesn't exist
+     * @return mixed Parameter value or default
+     */
+    public function post($name = null, $default = null) {
+        if ($name === null) {
+            return $_POST;
+        }
+        return $_POST[$name] ?? $default;
+    }
+
+    /**
+     * Get a file from the request (for file uploads)
+     *
+     * @param string $name File input name
+     * @return array|null File array or null
+     */
+    public function file($name = null) {
+        if ($name === null) {
+            return $_FILES;
+        }
+        return $_FILES[$name] ?? null;
     }
 }

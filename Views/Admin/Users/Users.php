@@ -59,39 +59,8 @@
             </table>
         </div>
         
-        <!-- Add pagination controls -->
-        <?php if (isset($pagination) && $pagination['totalPages'] > 1): ?>
-        <nav aria-label="User pagination">
-            <ul class="pagination justify-content-center">
-                <!-- Previous page link -->
-                <li class="page-item <?php echo $pagination['current'] <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] - 1; ?>" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
-                    </a>
-                </li>
-                
-                <!-- Page numbers -->
-                <?php for ($i = max(1, $pagination['current'] - 2); $i <= min($pagination['totalPages'], $pagination['current'] + 2); $i++): ?>
-                <li class="page-item <?php echo $i === $pagination['current'] ? 'active' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-                </li>
-                <?php endfor; ?>
-                
-                <!-- Next page link -->
-                <li class="page-item <?php echo $pagination['current'] >= $pagination['totalPages'] ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] + 1; ?>" aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        
-        <div class="text-center text-muted mb-4">
-            Showing <?php echo ($pagination['current'] - 1) * $pagination['perPage'] + 1; ?> - 
-            <?php echo min($pagination['current'] * $pagination['perPage'], $pagination['total']); ?> 
-            of <?php echo $pagination['total']; ?> users
-        </div>
-        <?php endif; ?>
+        <!-- Pagination controls -->
+        <?php include __DIR__ . '/../../partials/pagination.php'; ?>
     <?php endif; ?>
 </div>
 

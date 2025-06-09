@@ -169,59 +169,23 @@ class UserAdminController
      */
     public function update(int $id): Response
     {
-        $data = $_POST;
-        $user = $this->userRepository->getById($id);
-        
-        if (!$user) {
-            return new Response(
-                ['redirect' => '/admin/users?error=user-not-found'],
-                303,
-                ['Location' => '/admin/users?error=user-not-found']
-            );
+        $data = [
+            'username' => $this->request->post('username'),
+            'email' => $this->request->post('email'),
+            'role' => $this->request->post('role')
+        ];
+
+        $result = $this->userRepository->update($id, $data);
+
+        if ($result === 'DUPLICATE_EMAIL') {
+            return Response::view('Admin/Users/Edit', [
+                'error' => 'A user with this email already exists',
+                'user' => array_merge(['id' => $id], $data)
+            ], 422);
         }
-        
-        // Validate data
-        if (empty($data['name']) || empty($data['email'])) {
-            $html = View::render('Admin/Users/Edit.php', [
-                'title' => 'Admin - Edit User',
-                'user' => array_merge($user, $data), // Merge to keep submitted data
-                'heading' => 'Edit User',
-                'error' => 'Name and email are required'
-            ]);
-            
-            return new Response($html, 400, ['Content-Type' => 'text/html']);
-        }
-        
-        // Check if email is already in use by another user
-        $existingUser = $this->userRepository->getByEmail($data['email']);
-        if ($existingUser && $existingUser['id'] != $id) {
-            $html = View::render('Admin/Users/Edit.php', [
-                'title' => 'Admin - Edit User',
-                'user' => array_merge($user, $data), // Merge to keep submitted data
-                'heading' => 'Edit User',
-                'error' => 'Email already in use by another user'
-            ]);
-            
-            return new Response($html, 400, ['Content-Type' => 'text/html']);
-        }
-        
-        // Handle password update (only if provided)
-        if (!empty($data['password'])) {
-            $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-        } else {
-            // Don't update password if not provided
-            unset($data['password']);
-        }
-        
-        // Update user
-        $this->userRepository->update($id, $data);
-        
-        // Redirect to user list with success message
-        return new Response(
-            ['redirect' => '/admin/users?updated=true'],
-            303,
-            ['Location' => '/admin/users?updated=true']
-        );
+
+        return Response::redirect('/admin/users')
+            ->withFlash('success', 'User updated successfully.');
     }
 
     /**
@@ -248,5 +212,32 @@ class UserAdminController
             303,
             ['Location' => '/admin/users?deleted=true']
         );
+    }
+
+    /**
+     * Display a list of all users for the admin panel (API version).
+     */
+    public function apiIndex(): Response
+    {
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 10;
+
+        $page = max(1, $page);
+        $perPage = max(5, min(100, $perPage));
+
+        $offset = ($page - 1) * $perPage;
+
+        $users = $this->userRepository->getPaginated($perPage, $offset);
+        $totalUsers = $this->userRepository->getTotalCount();
+
+        return new Response([
+            'users' => $users,
+            'pagination' => [
+                'current' => $page,
+                'perPage' => $perPage,
+                'total' => $totalUsers,
+                'totalPages' => ceil($totalUsers / $perPage)
+            ]
+        ], 200);
     }
 }

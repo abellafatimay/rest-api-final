@@ -3,14 +3,11 @@
 <div class="container mt-4">
     <h1>Category Management</h1>
     
-    <?php if (isset($_GET['created'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            Category created successfully.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    <?php endif; ?>
-    
-    <div class="mb-3">
+    <div class="mb-3 d-flex justify-content-between">
+        <a href="/admin/" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        
         <a href="/admin/categories/create" class="btn btn-primary">Add New Category</a>
     </div>
     
@@ -43,32 +40,7 @@
         </tbody>
     </table>
     
-    <!-- Pagination controls -->
-    <?php if (isset($pagination) && $pagination['totalPages'] > 1): ?>
-    <nav aria-label="Category pagination">
-        <ul class="pagination justify-content-center">
-            <li class="page-item <?php echo $pagination['current'] <= 1 ? 'disabled' : ''; ?>">
-                <a class="page-link" href="?page=<?php echo $pagination['current'] - 1; ?>">Previous</a>
-            </li>
-            
-            <?php for ($i = 1; $i <= $pagination['totalPages']; $i++): ?>
-            <li class="page-item <?php echo $i === $pagination['current'] ? 'active' : ''; ?>">
-                <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-            </li>
-            <?php endfor; ?>
-            
-            <li class="page-item <?php echo $pagination['current'] >= $pagination['totalPages'] ? 'disabled' : ''; ?>">
-                <a class="page-link" href="?page=<?php echo $pagination['current'] + 1; ?>">Next</a>
-            </li>
-        </ul>
-    </nav>
-    
-    <div class="text-center text-muted mb-4">
-        Showing <?php echo ($pagination['current'] - 1) * $pagination['perPage'] + 1; ?> - 
-        <?php echo min($pagination['current'] * $pagination['perPage'], $pagination['total']); ?> 
-        of <?php echo $pagination['total']; ?> categories
-    </div>
-    <?php endif; ?>
+    <?php include __DIR__ . '/../../partials/pagination.php'; ?>
     <?php endif; ?>
 </div>
 

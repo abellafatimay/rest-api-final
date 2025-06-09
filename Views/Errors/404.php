@@ -46,5 +46,6 @@
         <p>The requested page could not be located.</p>
         <p><a href="/">← Go back to homepage</a></p>
     </div>
+    <?php include __DIR__ . '/../layout/footer.php'; ?>
 </body>
 </html>

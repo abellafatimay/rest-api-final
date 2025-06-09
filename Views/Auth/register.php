@@ -66,5 +66,6 @@
         </form>
         <p>Already have an account? <a href="/login">Login</a></p>
     </div>
+    <?php include __DIR__ . '/../layout/footer.php'; ?>
 </body>
 </html>

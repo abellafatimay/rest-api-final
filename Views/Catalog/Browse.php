@@ -64,26 +64,8 @@
             <?php endforeach; ?>
         </div>
         
-        <!-- Pagination -->
-        <?php if (isset($pagination) && $pagination['totalPages'] > 1): ?>
-        <nav aria-label="Catalog pagination" class="mt-4">
-            <ul class="pagination justify-content-center">
-                <li class="page-item <?php echo $pagination['current'] <= 1 ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] - 1; ?>&search=<?php echo urlencode($search ?? ''); ?>&category=<?php echo $currentCategory ?? ''; ?>">Previous</a>
-                </li>
-                
-                <?php for ($i = max(1, $pagination['current'] - 2); $i <= min($pagination['totalPages'], $pagination['current'] + 2); $i++): ?>
-                <li class="page-item <?php echo $i === $pagination['current'] ? 'active' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search ?? ''); ?>&category=<?php echo $currentCategory ?? ''; ?>"><?php echo $i; ?></a>
-                </li>
-                <?php endfor; ?>
-                
-                <li class="page-item <?php echo $pagination['current'] >= $pagination['totalPages'] ? 'disabled' : ''; ?>">
-                    <a class="page-link" href="?page=<?php echo $pagination['current'] + 1; ?>&search=<?php echo urlencode($search ?? ''); ?>&category=<?php echo $currentCategory ?? ''; ?>">Next</a>
-                </li>
-            </ul>
-        </nav>
-        <?php endif; ?>
+        <!-- Pagination controls -->
+        <?php include __DIR__ . '/../partials/pagination.php'; ?>
     <?php endif; ?>
 </div>
 

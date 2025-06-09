@@ -35,13 +35,13 @@ include __DIR__ . '/../../layout/header.php';
             </div>
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label for="category_id" class="form-label">Book Category</label>
-                    <select class="form-control" id="category_id" name="category_id">
+                    <label for="category" class="form-label">Book Category</label>
+                    <select class="form-control" id="category" name="category">
                         <option value="">Select a category...</option>
                         <?php if (!empty($categories)): ?>
                             <?php foreach ($categories as $category): ?>
                                 <option value="<?= htmlspecialchars($category['id']) ?>" 
-                                    <?= ((isset($book['category_id']) && $book['category_id'] == $category['id']) ? 'selected' : '') ?>>
+                                    <?= ((isset($book['category_id_alias']) && $book['category_id_alias'] == $category['id']) ? 'selected' : '') ?>>
                                     <?= htmlspecialchars($category['name']) ?>
                                 </option>
                             <?php endforeach; ?>
